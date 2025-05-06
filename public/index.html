@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>人狼ゲーム</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- サーバーが提供するSocket.IOクライアントライブラリ -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script defer src="client.js"></script>
+</head>
+<body>
+  <h1>人狼ゲーム</h1>
+
+  <div id="controls">
+    <section>
+      <h2>プレイヤー追加</h2>
+      <input type="text" id="playerName" placeholder="プレイヤー名">
+      <button id="addPlayerBtn">追加</button>
+    </section>
+
+    <section>
+      <h2>ゲーム操作</h2>
+      <button id="startGameBtn">ゲーム開始</button>
+      <!-- 手動割り当てモード時に表示 -->
+      <div id="manualRoleAssignment" style="display:none;">
+        <h3>手動役職割り当て</h3>
+        <input type="number" id="rolePlayerId" placeholder="プレイヤーID">
+        <select id="roleSelect">
+          <option value="占い師">占い師</option>
+          <option value="村人">村人</option>
+          <option value="人狼">人狼</option>
+          <option value="狐">狐</option>
+          <option value="霊能者">霊能者</option>
+          <option value="狩人">狩人</option>
+          <option value="共有者">共有者</option>
+          <option value="狂人">狂人</option>
+        </select>
+        <button id="setRoleBtn">役職設定</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>投票</h2>
+      <input type="number" id="voterId" placeholder="投票者ID">
+      <input type="number" id="targetId" placeholder="投票先ID">
+      <button id="voteBtn">投票</button>
+    </section>
+
+    <section>
+      <h2>夜フェーズ</h2>
+      <button id="processNightBtn">夜フェーズ実行</button>
+    </section>
+
+    <section>
+      <h2>勝敗・終了</h2>
+      <button id="winConditionBtn">勝敗判定</button>
+      <button id="endGameBtn">ゲーム終了</button>
+    </section>
+  </div>
+
+  <div id="gameStatus">
+    <h2>ゲーム状態</h2>
+    <pre id="statusDisplay"></pre>
+  </div>
+</body>
+</html>
