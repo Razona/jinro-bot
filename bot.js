@@ -16,7 +16,7 @@ const app = express();
 const http = require('http');
 const server = http.createServer(app);
 const path = require('path');
-app.use(express.static(path.join(__dirname, 'public'))); // publicフォルダ内の静的ファイルを提供
+// app.use(express.static(path.join(__dirname, 'public'))); // publicフォルダ内の静的ファイルを提供
 
 server.listen(80, () => {
   console.log('サーバーがポート80で起動しました。');
