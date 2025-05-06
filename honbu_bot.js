@@ -19,66 +19,96 @@ app.get('/', (req, res) => {
 });
 
 let gameSession = {
+  serverId: null,
   gameTitle: null,
-  roles: [],
+  roles: [], // ここにプレイヤーの役職と screenName が入る
   voteResult: null,
   fortuneResults: [],
   mediumResults: [],
   winningFaction: null,
-  // プレイヤーリストは既存のものを利用
 };
 
-// ダミーのプレイヤーリスト
+// ダミーのプレイヤーリスト (初期の参加者候補リストとして)
 let playerList = [
   { "discordId": "123456789012345678", "screenName": "ユーザーA", "playerNumber": 1 },
   { "discordId": "987654321098765432", "screenName": "ユーザーB", "playerNumber": 2 },
   { "discordId": "112233445566778899", "screenName": "ユーザーC", "playerNumber": 3 },
   { "discordId": "998877665544332211", "screenName": "ユーザーD", "playerNumber": 4 },
   { "discordId": "223344556677889900", "screenName": "ユーザーE", "playerNumber": 5 },
-  { "discordId": "334455667788990011", "screenName": "ユーザーF", "playerNumber": 6 },
-  { "discordId": "445566778899001122", "screenName": "ユーザーG", "playerNumber": 7 },
-  { "discordId": "556677889900112233", "screenName": "ユーザーH", "playerNumber": 8 },
-  { "discordId": "667788990011223344", "screenName": "ユーザーI", "playerNumber": 9 },
-  { "discordId": "778899001122334455", "screenName": "ユーザーJ", "playerNumber": 10 },
-  { "discordId": "889900112233445566", "screenName": "ユーザーK", "playerNumber": 11 },
-  { "discordId": "990011223344556677", "screenName": "ユーザーL", "playerNumber": 12 },
-  { "discordId": "101112131415161718", "screenName": "ユーザーM", "playerNumber": 13 }
+  // ... (以下省略)
 ];
+
+// playerNumber から screenName を取得するヘルパー関数
+function getPlayerScreenName(playerNumber) {
+  if (!gameSession.roles || gameSession.roles.length === 0) {
+    // /role/list/add が呼ばれる前など、roles が未設定の場合
+    const playerFromInitialList = playerList.find(p => p.playerNumber === playerNumber);
+    if (playerFromInitialList) {
+      return `${playerFromInitialList.screenName} (初期リストより)`;
+    }
+    return `P${playerNumber} (情報なし)`;
+  }
+  const player = gameSession.roles.find(p => p.playerNumber === playerNumber);
+  return player ? player.screenName : `P${playerNumber} (不明)`;
+}
+
 
 // 2.1. ゲーム準備 (タイトル設定とカテゴリ作成)
 app.post('/game/setup', (req, res) => {
-  const { gameTitle } = req.body;
-  if (!gameTitle) {
-    return res.status(400).json({ message: "gameTitle is required" });
+  const { serverId, gameTitle } = req.body;
+  if (!serverId || !gameTitle) {
+    return res.status(400).json({ message: "serverId and gameTitle are required" });
   }
-  gameSession.gameTitle = gameTitle;
-  // 実際のDiscord連携は省略
+  // 新しいゲーム開始時にセッション情報をクリア（rolesも含む）
+  gameSession = {
+    serverId: serverId,
+    gameTitle: gameTitle,
+    roles: [],
+    voteResult: null,
+    fortuneResults: [],
+    mediumResults: [],
+    winningFaction: null,
+  };
   console.log('Received /game/setup request:', req.body);
-  console.log(`ゲームタイトルを設定: ${gameTitle}`);
-  res.status(200).json({ message: `Game setup successful. Title: ${gameTitle}` });
+  console.log(`サーバーID: ${serverId}, ゲームタイトルを設定: ${gameTitle}. セッションを初期化しました。`);
+  res.status(200).json({ message: `Game setup successful. Server ID: ${serverId}, Title: ${gameTitle}. Session initialized.` });
 });
 
 // 2.2. プレイヤーリスト取得
 app.get('/player/list', (req, res) => {
   console.log('Received /player/list request');
-  // 実際にはDiscordから取得する処理が入るが、ここではダミーリストを返す
+  if (!gameSession.serverId) {
+    console.warn('/player/list called before /game/setup or without a valid serverId in session.');
+  }
   res.status(200).json(playerList);
 });
 
 // 2.3. 配役リスト送信
 app.post('/role/list/add', (req, res) => {
-  const roles = req.body;
-  if (!Array.isArray(roles)) {
+  const rolesData = req.body; // API仕様書に基づき、これがプレイヤー情報の配列
+  if (!Array.isArray(rolesData)) {
     return res.status(400).json({ message: "Role list must be an array" });
   }
-  gameSession.roles = roles;
-  // 実際のDiscord連携は省略
-  console.log('Received /role/list/add request:', req.body);
-  console.log(`配役リストを受信。${roles.length}人のプレイヤー情報。`);
-  roles.forEach(player => {
+  if (!gameSession.serverId || !gameSession.gameTitle) {
+    console.warn('/role/list/add called before /game/setup.');
+    // return res.status(400).json({ message: "Game not set up. Please call /game/setup first." });
+  }
+  // gameSession.roles に配役情報を格納。ここには screenName も含まれる想定
+  gameSession.roles = rolesData.map(roleInfo => ({
+    discordId: roleInfo.discordId,
+    screenName: roleInfo.screenName, // ゲーム内表示名
+    playerNumber: roleInfo.playerNumber,
+    role: roleInfo.role,
+    initialFortuneTargetPlayerNumber: roleInfo.initialFortuneTargetPlayerNumber
+  }));
+
+  console.log('Received /role/list/add request for serverId:', gameSession.serverId, ' gameTitle:', gameSession.gameTitle);
+  console.log('Request body:', req.body);
+  console.log(`配役リストをgameSession.rolesに格納。${gameSession.roles.length}人のプレイヤー情報。`);
+  gameSession.roles.forEach(player => {
     console.log(`  Player ${player.playerNumber} (${player.screenName}): ${player.role}`);
   });
-  res.status(200).json({ message: 'Role list added successfully', receivedRoles: roles.length });
+  res.status(200).json({ message: 'Role list added and processed successfully', receivedRoles: gameSession.roles.length });
 });
 
 // 2.4. 投票結果送信
@@ -87,10 +117,14 @@ app.post('/vote/result', (req, res) => {
   if (!voteData || typeof voteData.executedPlayerNumber === 'undefined') {
     return res.status(400).json({ message: "executedPlayerNumber is required" });
   }
+  if (!gameSession.serverId || !gameSession.gameTitle) {
+    console.warn('/vote/result called before /game/setup.');
+  }
   gameSession.voteResult = voteData;
-  // 実際の処理は省略
-  console.log('Received /vote/result request:', req.body);
-  console.log(`投票結果を受信。処刑者: Player ${voteData.executedPlayerNumber}`);
+  const executedPlayerName = getPlayerScreenName(voteData.executedPlayerNumber); // 処刑者のscreenNameを取得
+  console.log('Received /vote/result request for serverId:', gameSession.serverId, ' gameTitle:', gameSession.gameTitle);
+  console.log('Request body:', req.body);
+  console.log(`投票結果を受信。処刑者: ${executedPlayerName} (P${voteData.executedPlayerNumber})`);
   res.status(200).json({ message: 'Vote result received successfully' });
 });
 
@@ -100,10 +134,18 @@ app.post('/night/fortuner', (req, res) => {
   if (!fortuneData || typeof fortuneData.fortuneTellerPlayerNumber === 'undefined' || typeof fortuneData.targetPlayerNumber === 'undefined' || typeof fortuneData.result === 'undefined') {
     return res.status(400).json({ message: "fortuneTellerPlayerNumber, targetPlayerNumber, and result are required" });
   }
+  if (!gameSession.serverId || !gameSession.gameTitle) {
+    console.warn('/night/fortuner called before /game/setup.');
+  }
   gameSession.fortuneResults.push(fortuneData);
-  // 実際のDiscord通知は省略
-  console.log('Received /night/fortuner request:', req.body);
-  console.log(`占い結果を受信: 占い師 P${fortuneData.fortuneTellerPlayerNumber} -> 対象 P${fortuneData.targetPlayerNumber} = ${fortuneData.result ? '人狼' : '人間'}`);
+
+  const fortuneTellerName = getPlayerScreenName(fortuneData.fortuneTellerPlayerNumber);
+  const targetPlayerName = getPlayerScreenName(fortuneData.targetPlayerNumber);
+  const resultText = fortuneData.result ? '人狼' : '人間';
+
+  console.log('Received /night/fortuner request for serverId:', gameSession.serverId, ' gameTitle:', gameSession.gameTitle);
+  console.log('Request body:', req.body);
+  console.log(`占い結果を受信: 占い師 ${fortuneTellerName} (P${fortuneData.fortuneTellerPlayerNumber}) -> 対象 ${targetPlayerName} (P${fortuneData.targetPlayerNumber}) = ${resultText}`);
   res.status(200).json({ message: 'Fortune result received and processed' });
 });
 
@@ -113,10 +155,18 @@ app.post('/night/medium', (req, res) => {
   if (!mediumData || typeof mediumData.mediumPlayerNumber === 'undefined' || typeof mediumData.deceasedPlayerNumber === 'undefined' || typeof mediumData.result === 'undefined') {
     return res.status(400).json({ message: "mediumPlayerNumber, deceasedPlayerNumber, and result are required" });
   }
+  if (!gameSession.serverId || !gameSession.gameTitle) {
+    console.warn('/night/medium called before /game/setup.');
+  }
   gameSession.mediumResults.push(mediumData);
-  // 実際のDiscord通知は省略
-  console.log('Received /night/medium request:', req.body);
-  console.log(`霊媒結果を受信: 霊媒師 P${mediumData.mediumPlayerNumber} -> 処刑者 P${mediumData.deceasedPlayerNumber} = ${mediumData.result ? '人狼' : '人間'}`);
+
+  const mediumName = getPlayerScreenName(mediumData.mediumPlayerNumber);
+  const deceasedName = getPlayerScreenName(mediumData.deceasedPlayerNumber);
+  const resultText = mediumData.result ? '人狼' : '人間';
+
+  console.log('Received /night/medium request for serverId:', gameSession.serverId, ' gameTitle:', gameSession.gameTitle);
+  console.log('Request body:', req.body);
+  console.log(`霊媒結果を受信: 霊媒師 ${mediumName} (P${mediumData.mediumPlayerNumber}) -> 処刑者 ${deceasedName} (P${mediumData.deceasedPlayerNumber}) = ${resultText}`);
   res.status(200).json({ message: 'Medium result received and processed' });
 });
 
@@ -124,14 +174,16 @@ app.post('/night/medium', (req, res) => {
 app.post('/game/end', (req, res) => {
   const { winningFaction } = req.body;
   if (!winningFaction) {
-    // winningFactionがなくても受け付ける仕様の場合もあるため、ここでは警告のみに留める
     console.warn('Received /game/end request without winningFaction.');
   }
-  gameSession.winningFaction = winningFaction;
-  console.log('Received /game/end request:', req.body);
+  console.log('Received /game/end request for serverId:', gameSession.serverId, ' gameTitle:', gameSession.gameTitle);
+  console.log('Request body:', req.body);
   console.log(`ゲーム終了通知を受信。勝利陣営: ${winningFaction || '情報なし'}`);
-  // ゲームセッション情報をリセットするなどの処理
-  gameSession = {
+
+  const endedServerId = gameSession.serverId;
+  const endedGameTitle = gameSession.gameTitle;
+  gameSession = { // セッション情報をリセット
+    serverId: null,
     gameTitle: null,
     roles: [],
     voteResult: null,
@@ -139,7 +191,7 @@ app.post('/game/end', (req, res) => {
     mediumResults: [],
     winningFaction: null,
   };
-  console.log('ゲームセッション情報をリセットしました。');
+  console.log(`ゲームセッション情報をリセットしました。 (旧ServerID: ${endedServerId}, 旧GameTitle: ${endedGameTitle})`);
   res.status(200).json({ message: `Game ended. Winning faction: ${winningFaction || 'N/A'}. Session reset.` });
 });
 
