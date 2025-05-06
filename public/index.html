@@ -2,65 +2,393 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>人狼ゲーム</title>
-  <link rel="stylesheet" href="style.css">
-  <!-- サーバーが提供するSocket.IOクライアントライブラリ -->
-  <script src="/socket.io/socket.io.js"></script>
-  <script defer src="client.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>botサーバー API仕様書</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      /* slate-50 */
+      color: #334155;
+      /* slate-700 */
+    }
+
+    .api-endpoint {
+      background-color: white;
+      border: 1px solid #e2e8f0;
+      /* slate-200 */
+      border-radius: 0.5rem;
+      /* rounded-lg */
+      margin-bottom: 2rem;
+      /* mb-8 */
+      padding: 1.5rem;
+      /* p-6 */
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      /* shadow-md */
+    }
+
+    .api-endpoint h3 {
+      font-size: 1.25rem;
+      /* text-xl */
+      font-weight: 600;
+      /* font-semibold */
+      color: #1e293b;
+      /* slate-800 */
+      margin-bottom: 0.75rem;
+      /* mb-3 */
+    }
+
+    .api-endpoint h4 {
+      font-size: 1.125rem;
+      /* text-lg */
+      font-weight: 600;
+      /* font-semibold */
+      color: #1e293b;
+      /* slate-800 */
+      margin-top: 1rem;
+      /* mt-4 */
+      margin-bottom: 0.5rem;
+      /* mb-2 */
+    }
+
+    .http-method {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      /* px-3 py-1 */
+      border-radius: 9999px;
+      /* rounded-full */
+      font-size: 0.75rem;
+      /* text-xs */
+      font-weight: 700;
+      /* font-bold */
+      text-transform: uppercase;
+    }
+
+    .http-method-get {
+      background-color: #22c55e;
+      /* green-500 */
+      color: white;
+    }
+
+    .http-method-post {
+      background-color: #3b82f6;
+      /* blue-500 */
+      color: white;
+    }
+
+    code.path {
+      background-color: #e2e8f0;
+      /* slate-200 */
+      padding: 0.25rem 0.5rem;
+      /* p-1 */
+      border-radius: 0.25rem;
+      /* rounded */
+      font-size: 0.875rem;
+      /* text-sm */
+      color: #475569;
+      /* slate-600 */
+    }
+
+    pre code {
+      display: block;
+      background-color: #1e293b;
+      /* slate-800 */
+      color: #e2e8f0;
+      /* slate-200 */
+      padding: 1rem;
+      /* p-4 */
+      border-radius: 0.375rem;
+      /* rounded-md */
+      overflow-x: auto;
+      font-size: 0.875rem;
+      /* text-sm */
+      line-height: 1.4;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      /* text-2xl */
+      font-weight: 700;
+      /* font-bold */
+      color: #0f172a;
+      /* slate-900 */
+      margin-bottom: 1rem;
+      /* mb-4 */
+      padding-bottom: 0.5rem;
+      /* pb-2 */
+      border-bottom: 2px solid #cbd5e1;
+      /* border-slate-300 */
+    }
+
+    .subsection-title {
+      font-size: 1.125rem;
+      /* text-lg */
+      font-weight: 600;
+      /* font-semibold */
+      color: #1e293b;
+      /* slate-800 */
+      margin-top: 1.5rem;
+      /* mt-6 */
+      margin-bottom: 0.75rem;
+      /* mb-3 */
+    }
+
+    .note {
+      background-color: #eff6ff;
+      /* blue-50 */
+      border-left: 4px solid #3b82f6;
+      /* border-blue-500 */
+      padding: 1rem;
+      /* p-4 */
+      margin-top: 1rem;
+      /* mt-4 */
+      border-radius: 0.25rem;
+      /* rounded */
+      font-size: 0.875rem;
+      /* text-sm */
+      color: #1e3a8a;
+      /* blue-800 */
+    }
+
+    .new-feature {
+      font-size: 0.875rem;
+      /* text-sm */
+      font-weight: 500;
+      /* font-medium */
+      color: #4f46e5;
+      /* indigo-600 */
+    }
+
+    .api-url {
+      background-color: #f1f5f9;
+      /* slate-100 */
+      padding: 0.75rem 1rem;
+      /* p-3 */
+      border-radius: 0.375rem;
+      /* rounded-md */
+      margin-bottom: 1rem;
+      /* mb-4 */
+      font-size: 0.875rem;
+      /* text-sm */
+      color: #334155;
+      /* slate-700 */
+    }
+
+    .api-url strong {
+      color: #1e293b;
+      /* slate-800 */
+    }
+  </style>
 </head>
-<body>
-  <h1>人狼ゲーム</h1>
+<body class="p-4 md:p-8">
 
-  <div id="controls">
-    <section>
-      <h2>プレイヤー追加</h2>
-      <input type="text" id="playerName" placeholder="プレイヤー名">
-      <button id="addPlayerBtn">追加</button>
-    </section>
+  <header class="mb-8 text-center">
+    <h1 class="text-3xl md:text-4xl font-bold text-slate-900">botサーバー API仕様書</h1>
+  </header>
 
-    <section>
-      <h2>ゲーム操作</h2>
-      <button id="startGameBtn">ゲーム開始</button>
-      <!-- 手動割り当てモード時に表示 -->
-      <div id="manualRoleAssignment" style="display:none;">
-        <h3>手動役職割り当て</h3>
-        <input type="number" id="rolePlayerId" placeholder="プレイヤーID">
-        <select id="roleSelect">
-          <option value="占い師">占い師</option>
-          <option value="村人">村人</option>
-          <option value="人狼">人狼</option>
-          <option value="狐">狐</option>
-          <option value="霊能者">霊能者</option>
-          <option value="狩人">狩人</option>
-          <option value="共有者">共有者</option>
-          <option value="狂人">狂人</option>
-        </select>
-        <button id="setRoleBtn">役職設定</button>
+  <section class="mb-12">
+    <h2 class="section-title">1. 概要</h2>
+    <p class="mb-4 text-slate-600">
+            本ドキュメントは、オンライン人狼ゲーム支援システムにおける「botサーバー」（本部botバックエンド）が提供するAPIの仕様を定義します。
+        </p>
+
+    <div class="subsection-title">1.1. システム構成</div>
+    <ul class="list-disc list-inside space-y-2 text-slate-600">
+      <li><strong>スプレッドシート:</strong> GM（ゲームマスター）用UI、ゲームロジック（配役、夜行動/投票判定など）を担当するGoogle Spreadsheet。</li>
+      <li>
+        <strong>botサーバー:</strong> 本部botのバックエンドサーバー。スプレッドシートからのAPIリクエストを受け付け、Discord連携（ゲーム準備、プレイヤーリスト取得、役職/結果通知など）を実行します。
+        <div class="api-url mt-2">
+          <strong>APIサーバーのURL:</strong> <a href="https://jinro-api.razona.design" class="text-blue-600 hover:underline">https://jinro-api.razona.design</a><br>
+          (DNSの反映がされていない場合は <a href="https://jinro-bot-r3rl.onrender.com" class="text-blue-600 hover:underline">https://jinro-bot-r3rl.onrender.com</a>)
+        </div>
+      </li>
+      <li><strong>本部bot:</strong> プレイヤー向けUIとして機能するDiscord Bot。botサーバーによって制御されます。</li>
+    </ul>
+
+
+    <div class="subsection-title">1.2. API連携の基本方針</div>
+    <ul class="list-disc list-inside space-y-1 text-slate-600">
+      <li><strong>呼び出し方向:</strong> APIは基本的に「スプレッドシート → botサーバー」の方向に呼び出されます。</li>
+      <li><strong>トリガー:</strong> スプレッドシートに実装されたボタン（Google Apps Script）が、GMの操作によってAPI呼び出しのトリガーとなります。</li>
+      <li><strong>データ形式:</strong> リクエストボディ、レスポンスボディ共に原則としてJSON形式を使用します。</li>
+      <li><strong>botサーバーの役割:</strong> APIリクエストを受け、Discord上でのカテゴリ/チャンネル作成、メッセージ送信、プレイヤー管理などの操作を実行します。</li>
+    </ul>
+  </section>
+
+  <section class="mb-12">
+    <h2 class="section-title">2. APIエンドポイント</h2>
+
+    <div class="api-endpoint">
+      <h3>2.1. ゲーム準備 (タイトル設定とカテゴリ作成)</h3>
+      <div class="mb-4 space-y-2">
+        <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
+        <div><strong>パス:</strong> <code class="path">/game/setup</code></div>
       </div>
-    </section>
+      <p class="mb-2"><strong>説明:</strong> ゲームのタイトルを設定し、そのタイトルをカテゴリ名としてDiscord上にゲーム用のカテゴリと基本的なチャンネル（GM用、投票用など、役職チャンネルを除く）を作成します。通常、ゲーム開始前に最初に呼び出されるAPIです。</p>
+      <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [ゲーム準備開始] ボタン (想定)。</p>
+      <p class="mb-2"><strong>スプレッドシート処理:</strong> GMが入力したゲームタイトルをJSON化して送信します。</p>
+      <div class="mb-2">
+        <strong>botサーバー処理:</strong>
+        <ol class="list-decimal list-inside ml-4 mt-1 space-y-1">
+          <li>受け取ったゲームタイトルを現在のゲームセッション情報として保存します。</li>
+          <li>指定されたタイトルでDiscord上に新しいカテゴリを作成します。</li>
+          <li>作成したカテゴリ内に、基本的なチャンネル（例: <code class="path">GMチャンネル</code>, <code class="path">投票チャンネル</code>）を作成します。役職チャンネルは <code class="path">/role-list/add</code> 受信時に作成されます。</li>
+        </ol>
+      </div>
+      <h4>リクエスト形式 (JSON):</h4>
+      <pre><code class="language-json">
+{
+  "gameTitle": "第13回人狼ゲーム - 5月5日" // Discordカテゴリ名として使用
+}
+            </code></pre>
+    </div>
 
-    <section>
-      <h2>投票</h2>
-      <input type="number" id="voterId" placeholder="投票者ID">
-      <input type="number" id="targetId" placeholder="投票先ID">
-      <button id="voteBtn">投票</button>
-    </section>
+    <div class="api-endpoint">
+      <h3>2.2. プレイヤーリスト取得</h3>
+      <div class="mb-4 space-y-2">
+        <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-get">GET</span></div>
+        <div><strong>パス:</strong> <code class="path">/user-list/pull</code></div>
+      </div>
+      <p class="mb-2"><strong>説明:</strong> Discordの特定メッセージへのリアクション等に基づき、ゲーム参加者のDiscord ID、表示名、およびbotサーバー側で割り振られたプレイヤー番号のリストを取得します。<code class="path">/game/setup</code> の後に呼び出します。</p>
+      <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [プレイヤーリスト取得] ボタン。</p>
+      <p class="mb-2"><strong>botサーバー処理:</strong> Discordから参加者情報を収集し、各プレイヤーに一意のプレイヤー番号を割り当て、JSON配列で返却します。</p>
+      <p class="mb-2"><strong>スプレッドシート処理:</strong> 取得したリストを `メンバー` シートに反映させます。</p>
+      <h4>レスポンス形式 (JSON):</h4>
+      <pre><code class="language-json">
+[
+  { "discordId": "123456789012345678", "screenName": "ユーザーA", "playerNumber": 1 },
+  { "discordId": "987654321098765432", "screenName": "ユーザーB", "playerNumber": 2 }
+  // ... 他のプレイヤー
+]
+            </code></pre>
+    </div>
 
-    <section>
-      <h2>夜フェーズ</h2>
-      <button id="processNightBtn">夜フェーズ実行</button>
-    </section>
+    <div class="api-endpoint">
+      <h3>2.3. 配役リスト送信</h3>
+      <div class="mb-4 space-y-2">
+        <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
+        <div><strong>パス:</strong> <code class="path">/role-list/add</code></div>
+      </div>
+      <p class="mb-2"><strong>説明:</strong> スプレッドシートで決定された配役情報をbotサーバーに送信し、Discord上での役職配布（役職チャンネル作成、招待、メンション）を依頼します。<code class="path">/user-list/pull</code> の後に呼び出します。</p>
+      <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [配役結果を送信] ボタン。</p>
+      <p class="mb-2"><strong>スプレッドシート処理:</strong> 配役情報をJSON化して送信します。</p>
+      <p class="mb-2"><strong>botサーバー処理:</strong> 受け取った情報に基づき、<code class="path">/game/setup</code> で作成したカテゴリ内に役職チャンネル（村人を除く）を作成し、プレイヤーを招待、メンションで通知します。</p>
+      <h4>リクエスト形式 (JSON):</h4>
+      <pre><code class="language-json">
+[
+  {
+    "discordId": "123456789012345678",
+    "screenName": "プレイヤー1", // ゲーム内表示名
+    "playerNumber": 1,
+    "role": "人狼",
+    "initialFortuneTargetPlayerNumber": null // 占い師でない場合はnull
+  },
+  {
+    "discordId": "987654321098765432",
+    "screenName": "プレイヤー2",
+    "playerNumber": 2,
+    "role": "占い師",
+    "initialFortuneTargetPlayerNumber": 3 // 占い師の場合、初日占い先のプレイヤー番号
+  },
+  // ... 他のプレイヤー
+  {
+    "discordId": "112233445566778899",
+    "screenName": "プレイヤー3",
+    "playerNumber": 3,
+    "role": "村人",
+    "initialFortuneTargetPlayerNumber": null
+  }
+]
+            </code></pre>
+    </div>
 
-    <section>
-      <h2>勝敗・終了</h2>
-      <button id="winConditionBtn">勝敗判定</button>
-      <button id="endGameBtn">ゲーム終了</button>
-    </section>
-  </div>
+    <div class="api-endpoint">
+      <h3>2.4. 投票結果送信</h3>
+      <div class="mb-4 space-y-2">
+        <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
+        <div><strong>パス:</strong> <code class="path">/vote/result</code></div>
+      </div>
+      <p class="mb-2"><strong>説明:</strong> スプレッドシートで集計・判定された投票結果（処刑者、投票詳細、決戦情報）をbotサーバーに送信します。</p>
+      <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [投票結果を送信] ボタン。</p>
+      <p class="mb-2"><strong>スプレッドシート処理:</strong> 投票結果情報をJSON化して送信します。</p>
+      <p class="mb-2"><strong>botサーバー処理:</strong> 処刑者情報や投票ログを記録します。</p>
+      <h4>リクエスト形式 (JSON):</h4>
+      <pre><code class="language-json">
+{
+  "executedPlayerNumber": 2, // 本日の処刑者のプレイヤー番号
+  "voterPlayerNumbers": [1, 2, 3, 4, 5], // 投票元プレイヤー番号リスト (投票順)
+  "votedPlayerNumbers": [2, 3, 2, 3, 2], // 投票先プレイヤー番号リスト (投票順)
+  "isRunoffVote": true, // 決戦の有無 (boolean)
+  "runoffVoterPlayerNumbers": [1, 4, 5], // 決戦投票の投票元リスト (決戦時のみ)
+  "runoffVotedPlayerNumbers": [2, 2, 3]  // 決戦投票の投票先リスト (決戦時のみ)
+}
+            </code></pre>
+      <div class="note">
+        <p><strong>注記:</strong> 決戦がない場合、<code>runoffVoterPlayerNumbers</code> と <code>runoffVotedPlayerNumbers</code> は空のリスト <code>[]</code> または <code>null</code> とします。</p>
+      </div>
+    </div>
 
-  <div id="gameStatus">
-    <h2>ゲーム状態</h2>
-    <pre id="statusDisplay"></pre>
-  </div>
+    <div class="api-endpoint">
+      <h3>2.5. 占い結果送信</h3>
+      <div class="mb-4 space-y-2">
+        <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
+        <div><strong>パス:</strong> <code class="path">/night/fortuner</code></div>
+      </div>
+      <p class="mb-2"><strong>説明:</strong> スプレッドシートで判定された占い結果（対象プレイヤーが人間か人狼か）をbotサーバーに送信し、該当する占い師のDiscordチャンネルへの通知を依頼します。</p>
+      <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [占い結果を送信] ボタン。</p>
+      <p class="mb-2"><strong>スプレッドシート処理:</strong> 占い情報をJSON化して送信します。</p>
+      <p class="mb-2"><strong>botサーバー処理:</strong> 受け取った結果に基づき、適切な通知メッセージを生成し、該当占い師のDiscordチャンネルへ本部botとして投稿します。</p>
+      <h4>リクエスト形式 (JSON):</h4>
+      <pre><code class="language-json">
+{
+  "fortuneTellerPlayerNumber": 2, // 占いを行うプレイヤーの番号
+  "targetPlayerNumber": 3,       // 占い先のプレイヤー番号
+  "result": true                 // 占い結果 (boolean, 人狼: true, 人間: false)
+}
+            </code></pre>
+    </div>
+
+    <div class="api-endpoint">
+      <h3>2.6. 霊媒結果送信</h3>
+      <div class="mb-4 space-y-2">
+        <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
+        <div><strong>パス:</strong> <code class="path">/night/medium</code></div>
+      </div>
+      <p class="mb-2"><strong>説明:</strong> スプレッドシートで判定された霊媒結果（直前に処刑されたプレイヤーが人間か人狼か）をbotサーバーに送信し、該当する霊媒師のDiscordチャンネルへの通知を依頼します。</p>
+      <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [霊媒結果を送信] ボタン。</p>
+      <p class="mb-2"><strong>スプレッドシート処理:</strong> 霊媒情報をJSON化して送信します。</p>
+      <p class="mb-2"><strong>botサーバー処理:</strong> 受け取った結果に基づき、適切な通知メッセージを生成し、該当霊媒師のDiscordチャンネルへ本部botとして投稿します。</p>
+      <h4>リクエスト形式 (JSON):</h4>
+      <pre><code class="language-json">
+{
+  "mediumPlayerNumber": 3, // 霊媒を行うプレイヤーの番号
+  "deceasedPlayerNumber": 1, // 直前に処刑されたプレイヤーの番号
+  "result": false            // 霊媒結果 (boolean, 人狼: true, 人間: false)
+}
+            </code></pre>
+    </div>
+
+
+    <div class="api-endpoint">
+      <h3>2.7. ゲーム終了通知</h3>
+      <div class="mb-4 space-y-2">
+        <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
+        <div><strong>パス:</strong> <code class="path">/game/end</code></div>
+      </div>
+      <p class="mb-2"><strong>説明:</strong> ゲームの勝敗が決定した際に、勝利陣営をbotサーバーに通知します。その際に、ゲームの状態のリセットも行う。</p>
+      <h4>リクエスト形式案 (JSON):</h4>
+      <pre><code class="language-json">
+{
+  "winningFaction": "人狼陣営"
+}
+            </code></pre>
+    </div>
+
+
+
+  </section>
+
 </body>
 </html>

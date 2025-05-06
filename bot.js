@@ -16,7 +16,7 @@ const app = express();
 const http = require('http');
 const server = http.createServer(app);
 const path = require('path');
-// app.use(express.static(path.join(__dirname, 'public'))); // publicフォルダ内の静的ファイルを提供
+app.use(express.static(path.join(__dirname, 'public'))); // publicフォルダ内の静的ファイルを提供
 
 server.listen(80, () => {
   console.log('サーバーがポート80で起動しました。');
@@ -24,9 +24,7 @@ server.listen(80, () => {
 );
 
 app.get('/', (req, res) => {
-  res.json({
-    message: 'botは起動中です'
-  });
+  res.sendFile(path.join(__dirname, 'public', 'index.html')); // index.htmlを返す
 }
 );
 
