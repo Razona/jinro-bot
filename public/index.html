@@ -189,6 +189,29 @@
       margin-bottom: 0.25rem;
       /* mb-1 */
     }
+
+    .feature-list-item {
+      /* Added from previous correct version */
+      background-color: white;
+      border: 1px solid #e2e8f0;
+      /* slate-200 */
+      border-radius: 0.5rem;
+      /* rounded-lg */
+      padding: 1rem;
+      /* p-4 */
+      margin-bottom: 1rem;
+      /* mb-4 */
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      /* shadow-sm */
+    }
+
+    .feature-list-item strong {
+      /* Added from previous correct version */
+      color: #1e293b;
+      /* slate-800 */
+      font-weight: 600;
+      /* font-semibold */
+    }
   </style>
 </head>
 <body class="p-4 md:p-8">
@@ -243,7 +266,7 @@
         <ol class="list-decimal list-inside ml-4 mt-1 space-y-1">
           <li>受け取ったゲームタイトルを現在のゲームセッション情報として保存します。</li>
           <li>指定されたタイトルでDiscord上に新しいカテゴリを作成します。</li>
-          <li>作成したカテゴリ内に、基本的なチャンネル（例: <code class="path">GMチャンネル</code>, <code class="path">投票チャンネル</code>）を作成します。役職チャンネルは <code class="path">/role-list/add</code> 受信時に作成されます。</li>
+          <li>作成したカテゴリ内に、基本的なチャンネル（例: <code class="path">GMチャンネル</code>, <code class="path">投票チャンネル</code>）を作成します。役職チャンネルは <code class="path">/role/list/add</code> 受信時に作成されます。</li>
         </ol>
       </div>
       <h4>リクエストbody (JSON):</h4>
@@ -252,7 +275,6 @@
   "gameTitle": "13ア式-5月5日" // Discordカテゴリ名として使用
 }
             </code></pre>
-
     </div>
 
     <div class="api-endpoint">
@@ -312,7 +334,6 @@
   }
 ]
             </code></pre>
-
     </div>
 
     <div class="api-endpoint">
@@ -379,24 +400,55 @@
   "result": false            // 霊媒結果 (boolean, 人狼: true, 人間: false)
 }
             </code></pre>
-      <div class="response-info">
-
+    </div>
+    <div class="api-endpoint">
+      <h3>2.7. ゲーム終了通知</h3>
+      <div class="mb-4 space-y-2">
+        <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
+        <div><strong>パス:</strong> <code class="path">/game/end</code></div>
       </div>
-
-      <div class="api-endpoint">
-        <h3>2.7. ゲーム終了通知</h3>
-        <div class="mb-4 space-y-2">
-          <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
-          <div><strong>パス:</strong> <code class="path">/game/end</code></div>
-        </div>
-        <p class="mb-2"><strong>説明:</strong> ゲームの勝敗が決定した際に、勝利陣営をbotサーバーに通知します。その際に、ゲームの状態のリセットも行う。</p>
-        <h4>リクエストbody (JSON):</h4>
-        <pre><code class="language-json">
+      <p class="mb-2"><strong>説明:</strong> ゲームの勝敗が決定した際に、勝利陣営をbotサーバーに通知します。その際に、ゲームの状態のリセットも行う。</p>
+      <h4>リクエストbody (JSON):</h4>
+      <pre><code class="language-json">
 {
   "winningFaction": "人狼陣営"
 }
             </code></pre>
-      </div>
+    </div>
+  </section>
+
+  <section class="mb-12">
+    <h2 class="section-title">3. スプレッドシートに追加して欲しいボタンと機能の一覧</h2>
+    <ul class="space-y-4">
+      <li class="feature-list-item">
+        <strong>準備開始ボタン</strong>
+        <p class="text-sm text-slate-600 mt-1">カテゴリ名を入力する欄も欲しい。</p>
+        <p class="text-sm text-slate-500 mt-1">関連API: <code class="path">POST /game/setup</code></p>
+      </li>
+      <li class="feature-list-item">
+        <strong>プレイヤーリスト取得ボタン</strong>
+        <p class="text-sm text-slate-600 mt-1">このボタンを押して取得した結果をメンバーリストに反映させて欲しい。</p>
+        <p class="text-sm text-slate-500 mt-1">関連API: <code class="path">GET /player/list</code></p>
+      </li>
+      <li class="feature-list-item">
+        <strong>配役決定ボタン</strong>
+        <p class="text-sm text-slate-600 mt-1">配役を最終決定した時に押すボタン。これを押すとdiscordで配役が始まる。</p>
+        <p class="text-sm text-slate-500 mt-1">関連API: <code class="path">POST /role/list/add</code></p>
+      </li>
+      <li class="feature-list-item">
+        <strong>各役職の行動決定ボタン</strong>
+        <p class="text-sm text-slate-600 mt-1">役職実行タブに霊媒結果の送信ボタンと占い結果の送信ボタンが欲しい。</p>
+        <ul class="list-disc list-inside ml-4 mt-1 space-y-1 text-sm">
+          <li class="text-slate-500">占い結果送信: 関連API <code class="path">POST /night/fortuner</code></li>
+          <li class="text-slate-500">霊媒結果送信: 関連API <code class="path">POST /night/medium</code></li>
+        </ul>
+      </li>
+      <li class="feature-list-item">
+        <strong>ゲーム終了ボタン</strong>
+        <p class="text-sm text-slate-600 mt-1">ゲームが終了した場合にそれを知らせるボタンが欲しい。一応、今の仕様書には勝利陣営を送信する仕様にしているけど、bodyは空でも良い。</p>
+        <p class="text-sm text-slate-500 mt-1">関連API: <code class="path">POST /game/end</code></p>
+      </li>
+    </ul>
   </section>
 
 </body>
