@@ -10,6 +10,29 @@ const client = new Client({
   ],
 });
 
+//expressにてapiサーバーも立てる
+const express = require('express');
+const app = express();
+const http = require('http');
+const server = http.createServer(app);
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'public'))); // publicフォルダ内の静的ファイルを提供
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html')); // index.htmlを提供
+});
+server.listen(80, () => {
+  console.log('サーバーがポート80で起動しました。');
+}
+);
+
+app.get('/', (req, res) => {
+  res.json({
+    message: 'botは起動中です'
+  });
+}
+);
+
+
 let guardTarget = null;
 let attackTarget = null;
 let uranaiTarget = null;
@@ -340,5 +363,7 @@ client.on('messageCreate', async (message) => {
     }
   }
 });
+
+
 
 client.login(process.env.DISCORD_TOKEN);
