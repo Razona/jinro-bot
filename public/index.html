@@ -259,7 +259,8 @@
         <div><strong>パス:</strong> <code class="path">/game/setup</code></div>
       </div>
       <p class="mb-2"><strong>説明:</strong> ゲームのタイトルを設定し、そのタイトルをカテゴリ名としてDiscord上にゲーム用のカテゴリと基本的なチャンネル（GM用、投票用など、役職チャンネルを除く）を作成します。通常、ゲーム開始前に最初に呼び出されるAPIです。</p>
-      <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [ゲーム準備開始] ボタン (想定)。</p>
+      <p>discordにてサーバーidの取得が必要。(開発者モードをONにする必要あり)   コマンド打つのとどっちが簡素かちょっと要審議かも。</p>
+      <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [ゲーム準備開始] ボタン。</p>
       <p class="mb-2"><strong>スプレッドシート処理:</strong> GMが入力したゲームタイトルをJSON化して送信します。</p>
       <div class="mb-2">
         <strong>botサーバー処理:</strong>
@@ -272,6 +273,7 @@
       <h4>リクエストbody (JSON):</h4>
       <pre><code class="language-json">
 {
+  "serverId": "123456789012345678", // DiscordサーバーID,
   "gameTitle": "13ア式-5月5日" // Discordカテゴリ名として使用
 }
             </code></pre>
