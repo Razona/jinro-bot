@@ -6,8 +6,7 @@ const http = require('http');
 const server = http.createServer(app);
 const path = require('path');
 
-// Discord.jsのインポートと設定 (PermissionsBitField を追加)
-const { Client, GatewayIntentBits, ChannelType, PermissionsBitField } = require('discord.js'); // PermissionsBitField を追加
+const { Client, GatewayIntentBits, ChannelType, PermissionsBitField } = require('discord.js');
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -85,7 +84,7 @@ function getPlayerScreenName(playerNumber) {
 }
 
 app.post('/game/setup', async (req, res) => {
-  const { serverId, gameTitle } = req.body;
+  const { serverId, gameTitle } = req.body; // gameTitle は受け取るが、メッセージ内では固定文字列を使用
   if (!serverId || !gameTitle) {
     return res.status(400).json({ message: "serverId and gameTitle are required" });
   }
@@ -102,24 +101,16 @@ app.post('/game/setup', async (req, res) => {
       return res.status(404).json({ message: `Server with ID ${serverId} not found. Ensure the bot is a member of this server.` });
     }
 
-    // カテゴリ作成時にpermissionOverwritesを追加 (ここから変更)
     const newCategory = await guild.channels.create({
-      name: gameTitle,
+      name: gameTitle, // カテゴリ名はリクエストのgameTitleを使用
       type: ChannelType.GuildCategory,
       permissionOverwrites: [
         {
-          id: guild.roles.everyone, // @everyoneロールのID
-          deny: [PermissionsBitField.Flags.ViewChannel], // 「チャンネルを見る」権限を拒否
+          id: guild.roles.everyone,
+          deny: [PermissionsBitField.Flags.ViewChannel],
         },
-        // 必要であれば、ここに特定のロール（GMロールなど）やBot自身に
-        // ViewChannel権限を許可する設定を追加できます。例:
-        // {
-        //   id: 'YOUR_GM_ROLE_ID',
-        //   allow: [PermissionsBitField.Flags.ViewChannel],
-        // },
       ],
     });
-    // (ここまで変更)
 
     const gmChannel = await guild.channels.create({ name: 'GM', type: ChannelType.GuildText, parent: newCategory.id });
     const voteChannel = await guild.channels.create({ name: '投票', type: ChannelType.GuildText, parent: newCategory.id });
@@ -139,12 +130,24 @@ app.post('/game/setup', async (req, res) => {
       });
     }
 
-    const listCreationMessageContent = `プレイヤーリストを作成します。「${gameTitle}」に参加するプレイヤーの方はスタンプを押してください`;
+    // メッセージ文面を変更 (ここから変更)
+    const listCreationMessageContent = `プレイヤーリストを作成します。「テスト 5-6」に参加するプレイヤーの方は 🖐️ スタンプを押してください`;
+    // (ここまで変更)
     const postedMessage = await targetChannelForPlayerList.send(listCreationMessageContent);
+
+    // 投稿したメッセージにBotがリアクションを追加 (ここから追加)
+    try {
+      await postedMessage.react('🖐️'); // U+1F91A raised_hand
+      console.log(`  Bot reacted to message ${postedMessage.id} in #${targetChannelForPlayerList.name} with 🖐️.`);
+    } catch (reactionError) {
+      console.error(`  Failed to react to message ${postedMessage.id}:`, reactionError);
+      // リアクションの失敗は続行可能なエラーとしてログに記録するのみ
+    }
+    // (ここまで追加)
 
     gameSession = {
       serverId: serverId,
-      gameTitle: gameTitle,
+      gameTitle: gameTitle, // リクエストのgameTitleを保存
       categoryId: newCategory.id,
       channels: {
         gm: gmChannel.id,
