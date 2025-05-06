@@ -6,7 +6,7 @@ const http = require('http');
 const server = http.createServer(app);
 const path = require('path');
 
-// Discord.jsのインポートと設定 (ここから追加)
+// Discord.jsのインポートと設定
 const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const client = new Client({
   intents: [
@@ -28,8 +28,6 @@ if (process.env.DISCORD_TOKEN) {
 } else {
   console.warn("DISCORD_TOKEN is not set. Discord functionalities will be unavailable."); // トークン未設定時の警告
 }
-// (ここまで追加)
-
 
 // JSONリクエストボディをパースするためのミドルウェア
 app.use(express.json());
@@ -46,15 +44,14 @@ app.get('/', (req, res) => {
 let gameSession = {
   serverId: null,
   gameTitle: null,
-  // Discord連携で追加される情報をここに定義 (ここから変更)
   categoryId: null,
   channels: { // 各チャンネルのIDを保持するオブジェクト
     gm: null,
     vote: null,
-    announce: null,
+    announce: null, // 自動作成される「お知らせ」チャンネルのID
   },
-  playerListMessageId: null,
-  // (ここまで変更)
+  playerListMessageId: null, // プレイヤーリスト作成メッセージのID
+  // playerListMessageChannelId: null, // プレイヤーリストメッセージが投稿されたチャンネルのID (必要に応じて)
   roles: [], // ここにプレイヤーの役職と screenName が入る
   voteResult: null,
   fortuneResults: [],
@@ -82,7 +79,6 @@ let playerList = [
 // playerNumber から screenName を取得するヘルパー関数
 function getPlayerScreenName(playerNumber) {
   if (!gameSession.roles || gameSession.roles.length === 0) {
-    // /role/list/add が呼ばれる前など、roles が未設定の場合
     const playerFromInitialList = playerList.find(p => p.playerNumber === playerNumber);
     if (playerFromInitialList) {
       return `${playerFromInitialList.screenName} (初期リストより)`;
@@ -95,22 +91,21 @@ function getPlayerScreenName(playerNumber) {
 
 
 // 2.1. ゲーム準備 (タイトル設定とカテゴリ作成)
-app.post('/game/setup', async (req, res) => { // async に変更
+app.post('/game/setup', async (req, res) => {
   const { serverId, gameTitle } = req.body;
   if (!serverId || !gameTitle) {
     return res.status(400).json({ message: "serverId and gameTitle are required" });
   }
 
-  // Discordクライアントの準備状態を確認 (機能追加に必須)
   if (!client.isReady()) {
-    console.error("/game/setup: Discord client is not ready."); // 必要なログ
+    console.error("/game/setup: Discord client is not ready.");
     return res.status(503).json({ message: "Discord bot is not ready yet. Please try again in a moment." });
   }
 
   try {
     const guild = client.guilds.cache.get(serverId);
     if (!guild) {
-      console.error(`/game/setup: Guild with ID ${serverId} not found.`); // 必要なログ
+      console.error(`/game/setup: Guild with ID ${serverId} not found.`);
       return res.status(404).json({ message: `Server with ID ${serverId} not found. Ensure the bot is a member of this server.` });
     }
 
@@ -120,50 +115,68 @@ app.post('/game/setup', async (req, res) => { // async に変更
       type: ChannelType.GuildCategory,
     });
 
-    // チャンネル作成 (GM, 投票, お知らせ)
+    // 基本チャンネル作成 (GM, 投票, お知らせ)
     const gmChannel = await guild.channels.create({ name: 'GM', type: ChannelType.GuildText, parent: newCategory.id });
     const voteChannel = await guild.channels.create({ name: '投票', type: ChannelType.GuildText, parent: newCategory.id });
-    const announceChannel = await guild.channels.create({ name: 'お知らせ', type: ChannelType.GuildText, parent: newCategory.id });
+    const announceChannel = await guild.channels.create({ name: 'お知らせ', type: ChannelType.GuildText, parent: newCategory.id }); // 「お知らせ」チャンネルは作成
 
-    // プレイヤーリスト作成用メッセージ投稿
+    // プレイヤーリスト作成用メッセージの投稿先として「botテスト」チャンネルを検索 (ここから変更)
+    const playerListTargetChannelName = 'botテスト';
+    const targetChannelForPlayerList = guild.channels.cache.find(
+      ch => ch.name === playerListTargetChannelName && ch.type === ChannelType.GuildText
+    );
+
+    if (!targetChannelForPlayerList) {
+      // 「botテスト」チャンネルが見つからない場合のエラー処理
+      console.error(`/game/setup: Target channel "${playerListTargetChannelName}" for player list message not found in guild ${guild.name}. Basic category and channels were created.`);
+      // ここで作成済みのカテゴリやチャンネルを削除するなどのロールバック処理も検討可能だが、今回はエラーのみ返す
+      return res.status(404).json({
+        message: `Setup partially failed: Target channel "${playerListTargetChannelName}" for player list message not found. Basic category and channels were created.`,
+        createdCategoryId: newCategory.id,
+        createdChannels: { gm: gmChannel.id, vote: voteChannel.id, announce: announceChannel.id }
+      });
+    }
+    // (ここまで変更)
+
+    // 「botテスト」チャンネルにプレイヤーリスト作成用メッセージを投稿 (ここから変更)
     const listCreationMessageContent = `プレイヤーリストを作成します。「${gameTitle}」に参加するプレイヤーの方はスタンプを押してください`;
-    const postedMessage = await announceChannel.send(listCreationMessageContent);
+    const postedMessage = await targetChannelForPlayerList.send(listCreationMessageContent);
+    // (ここまで変更)
 
-    // gameSession を初期化/更新 (Discord関連IDを含むよう変更)
     gameSession = {
       serverId: serverId,
       gameTitle: gameTitle,
-      categoryId: newCategory.id, // 追加
-      channels: { // 追加
+      categoryId: newCategory.id,
+      channels: {
         gm: gmChannel.id,
         vote: voteChannel.id,
-        announce: announceChannel.id,
+        announce: announceChannel.id, // 自動作成した「お知らせ」チャンネルのID
       },
-      playerListMessageId: postedMessage.id, // 追加
-      roles: [], // rolesはリセット
+      playerListMessageId: postedMessage.id, // 「botテスト」に投稿したメッセージのID
+      roles: [],
       voteResult: null,
       fortuneResults: [],
       mediumResults: [],
       winningFaction: null,
     };
-    // 元のログメッセージを維持しつつ、セッションの初期化を示す
     console.log('Received /game/setup request:', req.body);
     console.log(`サーバーID: ${serverId}, ゲームタイトルを設定: ${gameTitle}. セッションを初期化しDiscordエンティティを作成しました。`);
-    console.log(`  Category ID: ${newCategory.id}, Announce Ch ID: ${announceChannel.id}, Player List Msg ID: ${postedMessage.id}`);
-
+    // ログに投稿先チャンネル名も表示 (ここから変更)
+    console.log(`  Category ID: ${newCategory.id}, Announce Ch ID: ${announceChannel.id}. Player List Msg (ID: ${postedMessage.id}) posted to #${targetChannelForPlayerList.name} (ID: ${targetChannelForPlayerList.id})`);
+    // (ここまで変更)
 
     res.status(200).json({
-      message: `Game "${gameTitle}" setup successful on server "${guild.name}". Discord entities created.`, // レスポンスメッセージを調整
+      message: `Game "${gameTitle}" setup successful on server "${guild.name}". Discord entities created. Player list message posted to #${targetChannelForPlayerList.name}.`, // レスポンスメッセージを調整
       categoryId: newCategory.id,
       channels: gameSession.channels,
       playerListMessageId: postedMessage.id,
+      playerListMessageChannelId: targetChannelForPlayerList.id // 投稿先チャンネルIDもレスポンスに含める (ここから変更)
     });
-
+    // (ここまで変更)
   } catch (error) {
-    console.error('/game/setup: Error during Discord operations:', error); // 必要なエラーログ
-    // Discord APIエラーに関する基本的なハンドリング (機能追加に必須)
+    console.error('/game/setup: Error during Discord operations:', error);
     let errorMessage = 'Failed to setup game on Discord due to an internal error.';
-    if (error.code === 50013) { // Missing Permissions
+    if (error.code === 50013) {
       errorMessage = 'Discord API Error: Bot is missing permissions to perform an action.';
     } else if (error.name === 'DiscordAPIError' && error.message.includes('Unknown Channel')) {
       errorMessage = 'Discord API Error: An unknown channel was encountered.';
@@ -183,18 +196,16 @@ app.get('/player/list', (req, res) => {
 
 // 2.3. 配役リスト送信
 app.post('/role/list/add', (req, res) => {
-  const rolesData = req.body; // API仕様書に基づき、これがプレイヤー情報の配列
+  const rolesData = req.body;
   if (!Array.isArray(rolesData)) {
     return res.status(400).json({ message: "Role list must be an array" });
   }
   if (!gameSession.serverId || !gameSession.gameTitle) {
     console.warn('/role/list/add called before /game/setup.');
-    // return res.status(400).json({ message: "Game not set up. Please call /game/setup first." });
   }
-  // gameSession.roles に配役情報を格納。ここには screenName も含まれる想定
   gameSession.roles = rolesData.map(roleInfo => ({
     discordId: roleInfo.discordId,
-    screenName: roleInfo.screenName, // ゲーム内表示名
+    screenName: roleInfo.screenName,
     playerNumber: roleInfo.playerNumber,
     role: roleInfo.role,
     initialFortuneTargetPlayerNumber: roleInfo.initialFortuneTargetPlayerNumber
@@ -219,7 +230,7 @@ app.post('/vote/result', (req, res) => {
     console.warn('/vote/result called before /game/setup.');
   }
   gameSession.voteResult = voteData;
-  const executedPlayerName = getPlayerScreenName(voteData.executedPlayerNumber); // 処刑者のscreenNameを取得
+  const executedPlayerName = getPlayerScreenName(voteData.executedPlayerNumber);
   console.log('Received /vote/result request for serverId:', gameSession.serverId, ' gameTitle:', gameSession.gameTitle);
   console.log('Request body:', req.body);
   console.log(`投票結果を受信。処刑者: ${executedPlayerName} (P${voteData.executedPlayerNumber})`);
@@ -280,10 +291,9 @@ app.post('/game/end', (req, res) => {
 
   const endedServerId = gameSession.serverId;
   const endedGameTitle = gameSession.gameTitle;
-  gameSession = { // セッション情報をリセット
+  gameSession = {
     serverId: null,
     gameTitle: null,
-    // Discord関連IDもリセット (変更)
     categoryId: null,
     channels: {
       gm: null,
