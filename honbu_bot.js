@@ -36,7 +36,7 @@ let userList = [
   { "discordId": "101112131415161718", "screenName": "ユーザーM", "playerNumber": 13 }
 ];
 
-app.get('user-list/pull ', (req, res) => {
+app.get('/player/list', (req, res) => {
   //json形式で返す
   res.json(userList);
 }

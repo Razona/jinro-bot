@@ -152,15 +152,6 @@
       /* blue-800 */
     }
 
-    .new-feature {
-      font-size: 0.875rem;
-      /* text-sm */
-      font-weight: 500;
-      /* font-medium */
-      color: #4f46e5;
-      /* indigo-600 */
-    }
-
     .api-url {
       background-color: #f1f5f9;
       /* slate-100 */
@@ -179,6 +170,24 @@
     .api-url strong {
       color: #1e293b;
       /* slate-800 */
+    }
+
+    .response-info {
+      margin-top: 0.75rem;
+      /* mt-3 */
+      padding: 0.75rem;
+      /* p-3 */
+      background-color: #f9fafb;
+      /* gray-50 */
+      border: 1px dashed #d1d5db;
+      /* gray-300 */
+      border-radius: 0.375rem;
+      /* rounded-md */
+    }
+
+    .response-info p {
+      margin-bottom: 0.25rem;
+      /* mb-1 */
     }
   </style>
 </head>
@@ -237,25 +246,26 @@
           <li>作成したカテゴリ内に、基本的なチャンネル（例: <code class="path">GMチャンネル</code>, <code class="path">投票チャンネル</code>）を作成します。役職チャンネルは <code class="path">/role-list/add</code> 受信時に作成されます。</li>
         </ol>
       </div>
-      <h4>リクエスト形式 (JSON):</h4>
+      <h4>リクエストbody (JSON):</h4>
       <pre><code class="language-json">
 {
   "gameTitle": "13ア式-5月5日" // Discordカテゴリ名として使用
 }
             </code></pre>
+
     </div>
 
     <div class="api-endpoint">
       <h3>2.2. プレイヤーリスト取得</h3>
       <div class="mb-4 space-y-2">
         <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-get">GET</span></div>
-        <div><strong>パス:</strong> <code class="path">/user-list/pull</code></div>
+        <div><strong>パス:</strong> <code class="path">/player/list</code></div>
       </div>
       <p class="mb-2"><strong>説明:</strong> Discordの特定メッセージへのリアクション等に基づき、ゲーム参加者のDiscord ID、表示名、およびbotサーバー側で割り振られたプレイヤー番号のリストを取得します。<code class="path">/game/setup</code> の後に呼び出します。</p>
       <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [プレイヤーリスト取得] ボタン。</p>
       <p class="mb-2"><strong>botサーバー処理:</strong> Discordから参加者情報を収集し、各プレイヤーに一意のplayerNumberを割り当て、JSON配列で返却します。</p>
       <p class="mb-2"><strong>スプレッドシート処理:</strong> 取得したリストを `メンバー` シートに反映させます。</p>
-      <h4>レスポンス形式 (JSON):</h4>
+      <h4>レスポンスbody (JSON):</h4>
       <pre><code class="language-json">
 [
   { "discordId": "123456789012345678", "screenName": "ユーザーA", "playerNumber": 1 },
@@ -269,13 +279,13 @@
       <h3>2.3. 配役リスト送信</h3>
       <div class="mb-4 space-y-2">
         <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
-        <div><strong>パス:</strong> <code class="path">/role-list/add</code></div>
+        <div><strong>パス:</strong> <code class="path">/role/list/add</code></div>
       </div>
       <p class="mb-2"><strong>説明:</strong> スプレッドシートで決定された配役情報をbotサーバーに送信し、Discord上での役職配布（役職チャンネル作成、招待、メンション）を依頼します。<code class="path">/user-list/pull</code> の後に呼び出します。</p>
       <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [配役結果を送信] ボタン。</p>
       <p class="mb-2"><strong>スプレッドシート処理:</strong> 配役情報をJSON化して送信します。</p>
       <p class="mb-2"><strong>botサーバー処理:</strong> 受け取った情報に基づき、<code class="path">/game/setup</code> で作成したカテゴリ内に役職チャンネル（村人を除く）を作成し、プレイヤーを招待、メンションで通知します。</p>
-      <h4>リクエスト形式 (JSON):</h4>
+      <h4>リクエストbody (JSON):</h4>
       <pre><code class="language-json">
 [
   {
@@ -302,6 +312,7 @@
   }
 ]
             </code></pre>
+
     </div>
 
     <div class="api-endpoint">
@@ -314,7 +325,7 @@
       <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [投票結果を送信] ボタン。</p>
       <p class="mb-2"><strong>スプレッドシート処理:</strong> 投票結果情報をJSON化して送信します。</p>
       <p class="mb-2"><strong>botサーバー処理:</strong> 処刑者情報や投票ログを記録します。</p>
-      <h4>リクエスト形式 (JSON):</h4>
+      <h4>リクエストbody (JSON):</h4>
       <pre><code class="language-json">
 {
   "executedPlayerNumber": 2, // 本日の処刑者のプレイヤー番号
@@ -340,7 +351,7 @@
       <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [占い結果を送信] ボタン。</p>
       <p class="mb-2"><strong>スプレッドシート処理:</strong> 占い情報をJSON化して送信します。</p>
       <p class="mb-2"><strong>botサーバー処理:</strong> 受け取った結果に基づき、適切な通知メッセージを生成し、該当占い師のDiscordチャンネルへ本部botとして投稿します。</p>
-      <h4>リクエスト形式 (JSON):</h4>
+      <h4>リクエストbody (JSON):</h4>
       <pre><code class="language-json">
 {
   "fortuneTellerPlayerNumber": 2, // 占いを行うプレイヤーの番号
@@ -360,7 +371,7 @@
       <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [霊媒結果を送信] ボタン。</p>
       <p class="mb-2"><strong>スプレッドシート処理:</strong> 霊媒情報をJSON化して送信します。</p>
       <p class="mb-2"><strong>botサーバー処理:</strong> 受け取った結果に基づき、適切な通知メッセージを生成し、該当霊媒師のDiscordチャンネルへ本部botとして投稿します。</p>
-      <h4>リクエスト形式 (JSON):</h4>
+      <h4>リクエストbody (JSON):</h4>
       <pre><code class="language-json">
 {
   "mediumPlayerNumber": 3, // 霊媒を行うプレイヤーの番号
@@ -368,26 +379,24 @@
   "result": false            // 霊媒結果 (boolean, 人狼: true, 人間: false)
 }
             </code></pre>
-    </div>
+      <div class="response-info">
 
-
-    <div class="api-endpoint">
-      <h3>2.7. ゲーム終了通知</h3>
-      <div class="mb-4 space-y-2">
-        <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
-        <div><strong>パス:</strong> <code class="path">/game/end</code></div>
       </div>
-      <p class="mb-2"><strong>説明:</strong> ゲームの勝敗が決定した際に、勝利陣営をbotサーバーに通知します。その際に、ゲームの状態のリセットも行う。</p>
-      <h4>リクエスト形式案 (JSON):</h4>
-      <pre><code class="language-json">
+
+      <div class="api-endpoint">
+        <h3>2.7. ゲーム終了通知</h3>
+        <div class="mb-4 space-y-2">
+          <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
+          <div><strong>パス:</strong> <code class="path">/game/end</code></div>
+        </div>
+        <p class="mb-2"><strong>説明:</strong> ゲームの勝敗が決定した際に、勝利陣営をbotサーバーに通知します。その際に、ゲームの状態のリセットも行う。</p>
+        <h4>リクエストbody (JSON):</h4>
+        <pre><code class="language-json">
 {
   "winningFaction": "人狼陣営"
 }
             </code></pre>
-    </div>
-
-
-
+      </div>
   </section>
 
 </body>
