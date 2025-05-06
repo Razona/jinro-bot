@@ -196,12 +196,12 @@
 
     <div class="subsection-title">1.1. システム構成</div>
     <ul class="list-disc list-inside space-y-2 text-slate-600">
-      <li><strong>スプレッドシート:</strong> GM（ゲームマスター）用UI、ゲームロジック（配役、夜行動/投票判定など）を担当するGoogle Spreadsheet。</li>
+      <li><strong>スプレッドシート:</strong> GM（ゲームマスター）用UI、ゲームロジック（配役、夜行動/投票判定など）を担当するGoogleスプレッドシート。</li>
       <li>
         <strong>botサーバー:</strong> 本部botのバックエンドサーバー。スプレッドシートからのAPIリクエストを受け付け、Discord連携（ゲーム準備、プレイヤーリスト取得、役職/結果通知など）を実行します。
         <div class="api-url mt-2">
           <strong>APIサーバーのURL:</strong> <a href="https://jinro-api.razona.design" class="text-blue-600 hover:underline">https://jinro-api.razona.design</a><br>
-          (DNSの反映がされていない場合は <a href="https://jinro-bot-r3rl.onrender.com" class="text-blue-600 hover:underline">https://jinro-bot-r3rl.onrender.com</a>)
+          (DNS周りでトラブってる場合は <a href="https://jinro-bot-r3rl.onrender.com" class="text-blue-600 hover:underline">https://jinro-bot-r3rl.onrender.com</a>)
         </div>
       </li>
       <li><strong>本部bot:</strong> プレイヤー向けUIとして機能するDiscord Bot。botサーバーによって制御されます。</li>
@@ -211,7 +211,7 @@
     <div class="subsection-title">1.2. API連携の基本方針</div>
     <ul class="list-disc list-inside space-y-1 text-slate-600">
       <li><strong>呼び出し方向:</strong> APIは基本的に「スプレッドシート → botサーバー」の方向に呼び出されます。</li>
-      <li><strong>トリガー:</strong> スプレッドシートに実装されたボタン（Google Apps Script）が、GMの操作によってAPI呼び出しのトリガーとなります。</li>
+      <li><strong>トリガー:</strong> スプレッドシートに実装されたボタンが、GMの操作によってAPI呼び出しのトリガーとなります。</li>
       <li><strong>データ形式:</strong> リクエストボディ、レスポンスボディ共に原則としてJSON形式を使用します。</li>
       <li><strong>botサーバーの役割:</strong> APIリクエストを受け、Discord上でのカテゴリ/チャンネル作成、メッセージ送信、プレイヤー管理などの操作を実行します。</li>
     </ul>
@@ -240,7 +240,7 @@
       <h4>リクエスト形式 (JSON):</h4>
       <pre><code class="language-json">
 {
-  "gameTitle": "第13回人狼ゲーム - 5月5日" // Discordカテゴリ名として使用
+  "gameTitle": "13ア式-5月5日" // Discordカテゴリ名として使用
 }
             </code></pre>
     </div>
@@ -253,7 +253,7 @@
       </div>
       <p class="mb-2"><strong>説明:</strong> Discordの特定メッセージへのリアクション等に基づき、ゲーム参加者のDiscord ID、表示名、およびbotサーバー側で割り振られたプレイヤー番号のリストを取得します。<code class="path">/game/setup</code> の後に呼び出します。</p>
       <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [プレイヤーリスト取得] ボタン。</p>
-      <p class="mb-2"><strong>botサーバー処理:</strong> Discordから参加者情報を収集し、各プレイヤーに一意のプレイヤー番号を割り当て、JSON配列で返却します。</p>
+      <p class="mb-2"><strong>botサーバー処理:</strong> Discordから参加者情報を収集し、各プレイヤーに一意のplayerNumberを割り当て、JSON配列で返却します。</p>
       <p class="mb-2"><strong>スプレッドシート処理:</strong> 取得したリストを `メンバー` シートに反映させます。</p>
       <h4>レスポンス形式 (JSON):</h4>
       <pre><code class="language-json">
