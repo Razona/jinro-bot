@@ -11,6 +11,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions, // リアクション取得のため追加
   ]
 });
 
@@ -48,6 +49,7 @@ let gameSession = {
     announce: null,
   },
   playerListMessageId: null,
+  playerListMessageChannelId: null, // player/list のために追加
   roles: [],
   voteResult: null,
   fortuneResults: [],
@@ -141,13 +143,12 @@ app.post('/game/setup', async (req, res) => {
       console.log(`  Bot reacted to message ${postedMessage.id} in #${targetChannelForPlayerList.name} with 🖐️.`);
     } catch (reactionError) {
       console.error(`  Failed to react to message ${postedMessage.id}:`, reactionError);
-      // リアクションの失敗は続行可能なエラーとしてログに記録するのみ
     }
     // (ここまで追加)
 
     gameSession = {
       serverId: serverId,
-      gameTitle: gameTitle, // リクエストのgameTitleを保存
+      gameTitle: gameTitle,
       categoryId: newCategory.id,
       channels: {
         gm: gmChannel.id,
@@ -155,6 +156,7 @@ app.post('/game/setup', async (req, res) => {
         announce: announceChannel.id,
       },
       playerListMessageId: postedMessage.id,
+      playerListMessageChannelId: targetChannelForPlayerList.id, // player/list のためにチャンネルIDを保存
       roles: [],
       voteResult: null,
       fortuneResults: [],
@@ -175,22 +177,75 @@ app.post('/game/setup', async (req, res) => {
 
   } catch (error) {
     console.error('/game/setup: Error during Discord operations:', error);
-    let errorMessage = 'Failed to setup game on Discord due to an internal error.';
-    if (error.code === 50013) {
-      errorMessage = 'Discord API Error: Bot is missing permissions to perform an action.';
-    } else if (error.name === 'DiscordAPIError' && error.message.includes('Unknown Channel')) {
-      errorMessage = 'Discord API Error: An unknown channel was encountered.';
-    }
-    return res.status(500).json({ message: errorMessage, details: error.message });
+    res.status(500).json({ message: 'Failed to setup game on Discord due to an internal error.', details: error.message });
   }
 });
 
-app.get('/player/list', (req, res) => {
+app.get('/player/list', async (req, res) => {
   console.log('Received /player/list request');
-  if (!gameSession.serverId) {
-    console.warn('/player/list called before /game/setup or without a valid serverId in session.');
+
+  if (!client.isReady()) {
+    console.warn('/player/list: Discord client is not ready.');
+    return res.status(503).json({ message: "Discord bot is not ready yet. Please try again in a moment." });
   }
-  res.status(200).json(playerList);
+
+  const { serverId, playerListMessageId, playerListMessageChannelId } = gameSession;
+
+  if (!serverId || !playerListMessageId || !playerListMessageChannelId) {
+    console.warn('/player/list called before /game/setup has completed or session is missing required IDs.');
+    return res.status(400).json({ message: "Game setup is not complete or player list message/channel ID is missing from session. Please run /game/setup first." });
+  }
+
+  try {
+    const guild = client.guilds.cache.get(serverId);
+    if (!guild) {
+      console.error(`/player/list: Guild with ID ${serverId} not found.`);
+      return res.status(404).json({ message: `Server with ID ${serverId} not found.` });
+    }
+
+    const channel = guild.channels.cache.get(playerListMessageChannelId);
+    if (!channel || channel.type !== ChannelType.GuildText) {
+      console.error(`/player/list: Text channel with ID ${playerListMessageChannelId} not found in guild ${guild.name} or it's not a text channel.`);
+      return res.status(404).json({ message: `Player list channel not found or is not a text channel.` });
+    }
+
+    const message = await channel.messages.fetch(playerListMessageId);
+    if (!message) {
+      console.error(`/player/list: Message with ID ${playerListMessageId} not found in channel #${channel.name}.`);
+      return res.status(404).json({ message: `Player list message not found.` });
+    }
+
+    const reactionEmoji = '🖐️';
+    const reaction = message.reactions.cache.get(reactionEmoji);
+
+    let players = [];
+    if (reaction) {
+      const usersWhoReacted = await reaction.users.fetch();
+      const actualUserReactions = usersWhoReacted.filter(user => !user.bot);
+
+      for (const user of actualUserReactions.values()) {
+        const member = await guild.members.fetch(user.id).catch(() => null);
+        players.push({
+          discordId: user.id,
+          screenName: member ? member.displayName : user.username,
+        });
+      }
+    } else {
+      console.log(`/player/list: No reactions found for emoji ${reactionEmoji} on message ${message.id} in channel #${channel.name}. An empty list will be returned.`);
+    }
+
+    const playerListWithNumbers = players.map((player, index) => ({
+      ...player,
+      playerNumber: index + 1,
+    }));
+
+    console.log(`/player/list: Responding with ${playerListWithNumbers.length} players.`);
+    res.status(200).json(playerListWithNumbers);
+
+  } catch (error) {
+    console.error('/player/list: Error fetching player list from Discord:', error);
+    res.status(500).json({ message: 'Failed to fetch player list from Discord due to an internal error.' });
+  }
 });
 
 app.post('/role/list/add', (req, res) => {
@@ -295,6 +350,7 @@ app.post('/game/end', (req, res) => {
       announce: null,
     },
     playerListMessageId: null,
+    playerListMessageChannelId: null, // リセット対象に追加
     roles: [],
     voteResult: null,
     fortuneResults: [],
