@@ -248,14 +248,21 @@ app.get('/player/list', async (req, res) => {
   }
 });
 
-app.post('/role/list/add', (req, res) => {
+app.post('/role/list/add', async (req, res) => {
   const rolesData = req.body;
   if (!Array.isArray(rolesData)) {
     return res.status(400).json({ message: "Role list must be an array" });
   }
-  if (!gameSession.serverId || !gameSession.gameTitle) {
-    console.warn('/role/list/add called before /game/setup.');
+  if (!gameSession.serverId || !gameSession.gameTitle || !gameSession.categoryId) {
+    console.warn('/role/list/add called before /game/setup or session is missing required IDs.');
+    return res.status(400).json({ message: "Game setup is not complete or serverId/gameTitle/categoryId is missing. Please run /game/setup first." });
   }
+
+  if (!client.isReady()) {
+    console.error("/role/list/add: Discord client is not ready.");
+    return res.status(503).json({ message: "Discord bot is not ready yet. Please try again in a moment." });
+  }
+
   gameSession.roles = rolesData.map(roleInfo => ({
     discordId: roleInfo.discordId,
     screenName: roleInfo.screenName,
@@ -265,12 +272,172 @@ app.post('/role/list/add', (req, res) => {
   }));
 
   console.log('Received /role/list/add request for serverId:', gameSession.serverId, ' gameTitle:', gameSession.gameTitle);
-  console.log('Request body:', req.body);
   console.log(`配役リストをgameSession.rolesに格納。${gameSession.roles.length}人のプレイヤー情報。`);
-  gameSession.roles.forEach(player => {
-    console.log(`  Player ${player.playerNumber} (${player.screenName}): ${player.role}`);
-  });
-  res.status(200).json({ message: 'Role list added and processed successfully', receivedRoles: gameSession.roles.length });
+
+  try {
+    const guild = client.guilds.cache.get(gameSession.serverId);
+    if (!guild) {
+      console.error(`/role/list/add: Guild with ID ${gameSession.serverId} not found.`);
+      return res.status(404).json({ message: `Server with ID ${gameSession.serverId} not found.` });
+    }
+
+    const category = guild.channels.cache.get(gameSession.categoryId);
+    if (!category || category.type !== ChannelType.GuildCategory) {
+      console.error(`/role/list/add: Category with ID ${gameSession.categoryId} not found or is not a category.`);
+      return res.status(404).json({ message: `Category with ID ${gameSession.categoryId} not found or is not a category.` });
+    }
+
+    const gmRole = guild.roles.cache.find(role => role.name === 'GM');
+    if (!gmRole) {
+      console.warn(`GM role named "GM" not found in server ${guild.name}. GM will not have automatic access to role channels.`);
+    }
+
+    const createdChannelsInfo = [];
+    const werewolfChannelName = "人狼";
+    let werewolfChannel = guild.channels.cache.find(ch => ch.name === werewolfChannelName && ch.parentId === category.id);
+
+    const werewolves = gameSession.roles.filter(player => player.role === "人狼");
+    if (werewolves.length > 0) {
+      const wolfPermissionOverwrites = [
+        {
+          id: guild.roles.everyone,
+          deny: [PermissionsBitField.Flags.ViewChannel],
+        },
+        ...werewolves.map(wolf => ({
+          id: wolf.discordId,
+          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages],
+        }))
+      ];
+      if (gmRole) {
+        wolfPermissionOverwrites.push({
+          id: gmRole.id,
+          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages],
+        });
+      }
+
+      if (!werewolfChannel) {
+        try {
+          werewolfChannel = await guild.channels.create({
+            name: werewolfChannelName,
+            type: ChannelType.GuildText,
+            parent: category.id,
+            permissionOverwrites: wolfPermissionOverwrites,
+          });
+          console.log(`Created channel: ${werewolfChannel.name} (ID: ${werewolfChannel.id})`);
+          createdChannelsInfo.push({ name: werewolfChannel.name, id: werewolfChannel.id, type: "人狼共通" });
+        } catch (error) {
+          console.error(`Error creating werewolf channel "${werewolfChannelName}":`, error);
+        }
+      } else {
+        try {
+          await werewolfChannel.edit({ permissionOverwrites: wolfPermissionOverwrites });
+          console.log(`Used and updated permissions for existing channel: ${werewolfChannel.name} (ID: ${werewolfChannel.id})`);
+          if (!createdChannelsInfo.find(c => c.id === werewolfChannel.id)) {
+            createdChannelsInfo.push({ name: werewolfChannel.name, id: werewolfChannel.id, type: "人狼共通 (既存)" });
+          }
+        } catch (error) {
+          console.error(`Error updating permissions for existing werewolf channel "${werewolfChannelName}":`, error);
+        }
+      }
+
+      if (werewolfChannel) {
+        gameSession.channels[werewolfChannelName] = werewolfChannel.id;
+        const wolfMentions = werewolves.map(wolf => `<@${wolf.discordId}>`).join(' ');
+        const wolfMessage = `${wolfMentions} あなたたちは人狼です。このチャンネルで作戦を練ってください。`;
+        try {
+          await werewolfChannel.send(wolfMessage);
+          console.log(`Sent welcome message to ${werewolfChannel.name}`);
+        } catch (error) {
+          console.error(`Error sending message to werewolf channel: ${error}`);
+        }
+      }
+    }
+
+    const otherRoles = gameSession.roles.filter(player => player.role !== "村人" && player.role !== "人狼");
+
+    for (const player of otherRoles) {
+      const roleChannelName = player.role;
+      let roleChannel = guild.channels.cache.find(ch => ch.name === roleChannelName && ch.parentId === category.id);
+
+      const playerPermissionOverwrites = [
+        {
+          id: guild.roles.everyone,
+          deny: [PermissionsBitField.Flags.ViewChannel],
+        },
+        {
+          id: player.discordId,
+          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages],
+        }
+      ];
+      if (gmRole) {
+        playerPermissionOverwrites.push({
+          id: gmRole.id,
+          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages],
+        });
+      }
+
+      if (!roleChannel) {
+        try {
+          roleChannel = await guild.channels.create({
+            name: roleChannelName,
+            type: ChannelType.GuildText,
+            parent: category.id,
+            permissionOverwrites: playerPermissionOverwrites,
+          });
+          console.log(`Created channel: ${roleChannel.name} (ID: ${roleChannel.id}) for ${player.screenName}`);
+          createdChannelsInfo.push({ name: roleChannel.name, id: roleChannel.id, type: "役職別", player: player.screenName });
+        } catch (error) {
+          console.error(`Error creating channel "${roleChannelName}" for ${player.screenName}:`, error);
+          continue;
+        }
+      } else {
+        try {
+          await roleChannel.edit({ permissionOverwrites: playerPermissionOverwrites });
+          console.log(`Used and updated permissions for existing channel: ${roleChannel.name} (ID: ${roleChannel.id}) for ${player.screenName}`);
+          if (!createdChannelsInfo.find(c => c.id === roleChannel.id && c.player === player.screenName)) {
+            createdChannelsInfo.push({ name: roleChannel.name, id: roleChannel.id, type: "役職別 (既存)", player: player.screenName });
+          }
+        } catch (error) {
+          console.error(`Error updating permissions for existing role channel "${roleChannelName}" for ${player.screenName}:`, error);
+        }
+      }
+
+      if (roleChannel) {
+        gameSession.channels[roleChannelName] = roleChannel.id;
+        let roleMessage = `<@${player.discordId}> あなたの役職は ${player.role} です。`;
+        // ▼▼▼ここから修正▼▼▼
+        if (player.role === "占い師" && player.initialFortuneTargetPlayerNumber !== null && player.initialFortuneTargetPlayerNumber !== undefined) {
+          const targetPlayer = gameSession.roles.find(p => p.playerNumber === player.initialFortuneTargetPlayerNumber);
+          if (targetPlayer) {
+            // 初日占いは必ず「人間」と表示
+            roleMessage += `\n初日の占い先は ${targetPlayer.screenName} (P${targetPlayer.playerNumber}) です。結果は 【人間】 でした。`;
+          } else {
+            roleMessage += `\n初日の占い対象 (P${player.initialFortuneTargetPlayerNumber}) の情報が見つかりませんでした。`;
+          }
+        }
+        // ▲▲▲ここまで修正▲▲▲
+        try {
+          await roleChannel.send(roleMessage);
+          console.log(`Sent role assignment message to ${player.screenName} in ${roleChannel.name}`);
+        } catch (error) {
+          console.error(`Error sending message to role channel ${roleChannel.name}: ${error}`);
+        }
+      }
+    }
+
+    console.log('gameSession.channels updated:', gameSession.channels);
+
+    res.status(200).json({
+      message: 'Role list processed. Channels created/updated, players invited, and GM role granted access. Channels saved to session.',
+      createdChannels: createdChannelsInfo,
+      sessionChannels: gameSession.channels,
+      receivedRoles: gameSession.roles.length
+    });
+
+  } catch (error) {
+    console.error('/role/list/add: Error during Discord operations:', error);
+    res.status(500).json({ message: 'Failed to process role list on Discord due to an internal error.', details: error.message });
+  }
 });
 
 app.post('/vote/result', (req, res) => {
@@ -289,7 +456,7 @@ app.post('/vote/result', (req, res) => {
   res.status(200).json({ message: 'Vote result received successfully' });
 });
 
-app.post('/night/fortuner', (req, res) => {
+app.post('/night/fortuner', async (req, res) => {
   const fortuneData = req.body;
   if (!fortuneData || typeof fortuneData.fortuneTellerPlayerNumber === 'undefined' || typeof fortuneData.targetPlayerNumber === 'undefined' || typeof fortuneData.result === 'undefined') {
     return res.status(400).json({ message: "fortuneTellerPlayerNumber, targetPlayerNumber, and result are required" });
@@ -306,10 +473,38 @@ app.post('/night/fortuner', (req, res) => {
   console.log('Received /night/fortuner request for serverId:', gameSession.serverId, ' gameTitle:', gameSession.gameTitle);
   console.log('Request body:', req.body);
   console.log(`占い結果を受信: 占い師 ${fortuneTellerName} (P${fortuneData.fortuneTellerPlayerNumber}) -> 対象 ${targetPlayerName} (P${fortuneData.targetPlayerNumber}) = ${resultText}`);
+
+  // 占い師のチャンネルに結果を通知
+  try {
+    const guild = client.guilds.cache.get(gameSession.serverId);
+    if (!guild) {
+      console.error(`/night/fortuner: Guild with ID ${gameSession.serverId} not found.`);
+      return res.status(404).json({ message: `Server with ID ${gameSession.serverId} not found.` });
+    }
+
+    const fortuneTeller = gameSession.roles.find(player => player.playerNumber === fortuneData.fortuneTellerPlayerNumber);
+    if (!fortuneTeller) {
+      console.error(`/night/fortuner: Fortune teller with PlayerNumber ${fortuneData.fortuneTellerPlayerNumber} not found in gameSession.`);
+      return res.status(400).json({ message: `Fortune teller with PlayerNumber ${fortuneData.fortuneTellerPlayerNumber} not found.` });
+    }
+
+    const channel = guild.channels.cache.find(ch => ch.name === fortuneTeller.role && ch.parent === guild.channels.cache.get(gameSession.categoryId));
+    if (!channel) {
+      console.error(`/night/fortuner: Channel for ${fortuneTeller.role} not found in category.`);
+      return res.status(404).json({ message: `Channel for ${fortuneTeller.role} not found.` });
+    }
+
+    await channel.send(`${targetPlayerName} (P${fortuneData.targetPlayerNumber}) の占い結果は${resultText}です。`);
+
+  } catch (error) {
+    console.error('/night/fortuner: Error sending fortune result to Discord:', error);
+    return res.status(500).json({ message: 'Failed to send fortune result to Discord due to an internal error.', details: error.message });
+  }
+
   res.status(200).json({ message: 'Fortune result received and processed' });
 });
 
-app.post('/night/medium', (req, res) => {
+app.post('/night/medium', async (req, res) => {
   const mediumData = req.body;
   if (!mediumData || typeof mediumData.mediumPlayerNumber === 'undefined' || typeof mediumData.deceasedPlayerNumber === 'undefined' || typeof mediumData.result === 'undefined') {
     return res.status(400).json({ message: "mediumPlayerNumber, deceasedPlayerNumber, and result are required" });
@@ -326,20 +521,133 @@ app.post('/night/medium', (req, res) => {
   console.log('Received /night/medium request for serverId:', gameSession.serverId, ' gameTitle:', gameSession.gameTitle);
   console.log('Request body:', req.body);
   console.log(`霊媒結果を受信: 霊媒師 ${mediumName} (P${mediumData.mediumPlayerNumber}) -> 処刑者 ${deceasedName} (P${mediumData.deceasedPlayerNumber}) = ${resultText}`);
+
+  // 霊媒師のチャンネルに結果を通知
+  try {
+    const guild = client.guilds.cache.get(gameSession.serverId);
+    if (!guild) {
+      console.error(`/night/medium: Guild with ID ${gameSession.serverId} not found.`);
+      return res.status(404).json({ message: `Server with ID ${gameSession.serverId} not found.` });
+    }
+
+    const medium = gameSession.roles.find(player => player.playerNumber === mediumData.mediumPlayerNumber);
+    if (!medium) {
+      console.error(`/night/medium: Medium with PlayerNumber ${mediumData.mediumPlayerNumber} not found in gameSession.`);
+      return res.status(400).json({ message: `Medium with PlayerNumber ${mediumData.mediumPlayerNumber} not found.` });
+    }
+
+    const channel = guild.channels.cache.find(ch => ch.name === medium.role && ch.parent === guild.channels.cache.get(gameSession.categoryId));
+    if (!channel) {
+      console.error(`/night/medium: Channel for ${medium.role} not found in category.`);
+      return res.status(404).json({ message: `Channel for ${medium.role} not found.` });
+    }
+
+    await channel.send(`${deceasedName} (P${mediumData.deceasedPlayerNumber}) の霊媒結果は${resultText}です。`);
+
+  } catch (error) {
+    console.error('/night/medium: Error sending medium result to Discord:', error);
+    return res.status(500).json({ message: 'Failed to send medium result to Discord due to an internal error.', details: error.message });
+  }
+
   res.status(200).json({ message: 'Medium result received and processed' });
 });
 
-app.post('/game/end', (req, res) => {
+
+app.post('/game/end', async (req, res) => {
   const { winningFaction } = req.body;
-  if (!winningFaction) {
-    console.warn('Received /game/end request without winningFaction.');
-  }
   console.log('Received /game/end request for serverId:', gameSession.serverId, ' gameTitle:', gameSession.gameTitle);
   console.log('Request body:', req.body);
   console.log(`ゲーム終了通知を受信。勝利陣営: ${winningFaction || '情報なし'}`);
 
   const endedServerId = gameSession.serverId;
   const endedGameTitle = gameSession.gameTitle;
+  const endedCategoryId = gameSession.categoryId;
+  const endedRoles = [...gameSession.roles]; // プレイヤー情報をコピー
+  const endedChannels = { ...gameSession.channels }; // チャンネル情報をコピー
+
+  if (endedServerId && endedCategoryId && endedRoles.length > 0) {
+    if (!client.isReady()) {
+      console.error("/game/end: Discord client is not ready. Cannot update channel permissions.");
+    } else {
+      try {
+        const guild = client.guilds.cache.get(endedServerId);
+        if (!guild) {
+          console.error(`/game/end: Guild with ID ${endedServerId} not found. Cannot update channel permissions.`);
+        } else {
+          const category = guild.channels.cache.get(endedCategoryId);
+          if (!category || category.type !== ChannelType.GuildCategory) {
+            console.error(`/game/end: Category with ID ${endedCategoryId} not found or is not a category. Cannot update channel permissions reliably.`);
+          }
+
+          const gmRole = guild.roles.cache.find(role => role.name === 'GM');
+
+          console.log(`Attempting to make role channels in category "${category ? category.name : endedCategoryId}" visible to ${endedRoles.length} players.`);
+
+          const playerDiscordIds = endedRoles.map(p => p.discordId);
+
+          for (const channelName in endedChannels) {
+            if (channelName === 'gm' || channelName === 'vote' || channelName === 'announce' || !endedChannels[channelName]) {
+              continue; // Skip basic channels or null channel IDs
+            }
+
+            const channelId = endedChannels[channelName];
+            const channel = guild.channels.cache.get(channelId);
+
+            if (channel && channel.parentId === endedCategoryId) {
+              console.log(`  Updating permissions for channel: ${channel.name} (ID: ${channel.id})`);
+              try {
+                const permissionOverwrites = [
+                  // Everyone in the server can view (if category allows)
+                  {
+                    id: guild.roles.everyone,
+                    allow: [PermissionsBitField.Flags.ViewChannel],
+                  },
+                  // Explicitly allow all game participants
+                  ...playerDiscordIds.map(playerId => ({
+                    id: playerId,
+                    allow: [PermissionsBitField.Flags.ViewChannel],
+                  }))
+                ];
+
+                if (gmRole) {
+                  permissionOverwrites.push({
+                    id: gmRole.id,
+                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages], // GM can still send messages
+                  });
+                }
+
+                // Make channel readable by players, but not necessarily writable by default after game.
+                // Players will inherit category permissions for sending messages unless explicitly set here.
+                // For simplicity, we only ensure ViewChannel for players.
+                // If channels should become read-only for players (except GM), add deny: [PermissionsBitField.Flags.SendMessages] for players.
+                // However, the request was about *accessing* (viewing).
+
+                await channel.edit({ permissionOverwrites });
+                console.log(`    Permissions updated for ${channel.name}.`);
+
+                // Optionally, send a message to the channel indicating it's now open
+                // await channel.send(`ゲームが終了しました。このチャンネルは全ての参加者に公開されました。`);
+
+              } catch (permError) {
+                console.error(`    Failed to update permissions for channel ${channel.name} (ID: ${channel.id}):`, permError);
+              }
+            } else if (channel && channel.parentId !== endedCategoryId) {
+              console.warn(`  Channel ${channelName} (ID: ${channelId}) is not in the expected game category. Skipping permission update.`);
+            } else if (!channel) {
+              console.warn(`  Channel ${channelName} (ID: ${channelId}) not found in cache. Skipping permission update.`);
+            }
+          }
+          console.log("Finished attempting to update channel permissions for game end.");
+        }
+      } catch (error) {
+        console.error('/game/end: Error during Discord operations for opening channels:', error);
+      }
+    }
+  } else {
+    console.warn("/game/end: Not enough session information (serverId, categoryId, or roles) to update channel permissions.");
+  }
+
+  // Reset game session
   gameSession = {
     serverId: null,
     gameTitle: null,
@@ -350,7 +658,7 @@ app.post('/game/end', (req, res) => {
       announce: null,
     },
     playerListMessageId: null,
-    playerListMessageChannelId: null, // リセット対象に追加
+    playerListMessageChannelId: null,
     roles: [],
     voteResult: null,
     fortuneResults: [],
@@ -358,7 +666,10 @@ app.post('/game/end', (req, res) => {
     winningFaction: null,
   };
   console.log(`ゲームセッション情報をリセットしました。 (旧ServerID: ${endedServerId}, 旧GameTitle: ${endedGameTitle})`);
-  res.status(200).json({ message: `Game ended. Winning faction: ${winningFaction || 'N/A'}. Session reset.` });
+  res.status(200).json({
+    message: `Game ended. Winning faction: ${winningFaction || 'N/A'}. Channel permissions updated (if possible) and session reset.`,
+    details: `Permissions for channels in category ${endedGameTitle} on server ${endedServerId} were processed for all players.`
+  });
 });
 
 app.use((req, res) => {
