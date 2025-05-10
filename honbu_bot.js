@@ -86,7 +86,7 @@ function getPlayerScreenName(playerNumber) {
 }
 
 app.post('/game/setup', async (req, res) => {
-  const { serverId, gameTitle } = req.body; // gameTitle は受け取るが、メッセージ内では固定文字列を使用
+  const { serverId, gameTitle } = req.body;
   if (!serverId || !gameTitle) {
     return res.status(400).json({ message: "serverId and gameTitle are required" });
   }
@@ -118,7 +118,7 @@ app.post('/game/setup', async (req, res) => {
     const voteChannel = await guild.channels.create({ name: '投票', type: ChannelType.GuildText, parent: newCategory.id });
     const announceChannel = await guild.channels.create({ name: 'お知らせ', type: ChannelType.GuildText, parent: newCategory.id });
 
-    const playerListTargetChannelName = 'botテスト';
+    const playerListTargetChannelName = '一般';
     const targetChannelForPlayerList = guild.channels.cache.find(
       ch => ch.name === playerListTargetChannelName && ch.type === ChannelType.GuildText
     );
@@ -132,19 +132,18 @@ app.post('/game/setup', async (req, res) => {
       });
     }
 
-    // メッセージ文面を変更 (ここから変更)
-    const listCreationMessageContent = `プレイヤーリストを作成します。「テスト 5-6」に参加するプレイヤーの方は 🖐️ スタンプを押してください`;
-    // (ここまで変更)
+
+    const listCreationMessageContent = `プレイヤーリストを作成します。${gameTitle}に参加するプレイヤーの方は 🖐️ スタンプを押してください`;
     const postedMessage = await targetChannelForPlayerList.send(listCreationMessageContent);
 
-    // 投稿したメッセージにBotがリアクションを追加 (ここから追加)
+    // 投稿したメッセージにBotがリアクションを追加
     try {
       await postedMessage.react('🖐️'); // U+1F91A raised_hand
       console.log(`  Bot reacted to message ${postedMessage.id} in #${targetChannelForPlayerList.name} with 🖐️.`);
     } catch (reactionError) {
       console.error(`  Failed to react to message ${postedMessage.id}:`, reactionError);
     }
-    // (ここまで追加)
+
 
     gameSession = {
       serverId: serverId,
