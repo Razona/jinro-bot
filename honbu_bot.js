@@ -118,7 +118,7 @@ app.post('/game/setup', async (req, res) => {
     const voteChannel = await guild.channels.create({ name: '投票', type: ChannelType.GuildText, parent: newCategory.id });
     const announceChannel = await guild.channels.create({ name: 'お知らせ', type: ChannelType.GuildText, parent: newCategory.id });
 
-    const playerListTargetChannelName = '一般';
+    const playerListTargetChannelName = 'botテスト' || '一般';
     const targetChannelForPlayerList = guild.channels.cache.find(
       ch => ch.name === playerListTargetChannelName && ch.type === ChannelType.GuildText
     );

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>五目並べ</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(15, 40px);
+      grid-template-rows: repeat(15, 40px);
+      gap: 2px;
+      margin: 20px auto;
+      width: 600px;
+    }
+
+    .cell {
+      width: 40px;
+      height: 40px;
+      background-color: #ddd;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .black {
+      background-color: #000;
+    }
+
+    .white {
+      background-color: #fff;
+    }
+
+    #status {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    #reset {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">黒の番です</div>
+  <div id="board"></div>
+  <button id="reset">リセット</button>
+
+  <script>
+    const boardElement = document.getElementById('board');
+    const statusElement = document.getElementById('status');
+    const resetButton = document.getElementById('reset');
+
+    const BOARD_SIZE = 15;
+    let board = [];
+    let currentPlayer = 'black';
+    let gameOver = false;
+
+    // ボードの初期化
+    function initBoard() {
+      board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
+      boardElement.innerHTML = '';
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          const cell = document.createElement('div');
+          cell.classList.add('cell');
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+          cell.addEventListener('click', handleClick);
+          boardElement.appendChild(cell);
+        }
+      }
+      gameOver = false;
+      currentPlayer = 'black';
+      statusElement.textContent = '黒の番です';
+    }
+
+    // クリックイベントの処理
+    function handleClick(e) {
+      if (gameOver) return;
+      const row = parseInt(e.target.dataset.row);
+      const col = parseInt(e.target.dataset.col);
+
+      if (board[row][col] !== null) return;
+
+      board[row][col] = currentPlayer;
+      e.target.classList.add(currentPlayer);
+
+      if (checkWin(row, col, currentPlayer)) {
+        statusElement.textContent = `${currentPlayer}の勝利！`;
+        gameOver = true;
+        return;
+      }
+
+      currentPlayer = currentPlayer === 'black' ? 'white' : 'black';
+      statusElement.textContent = `${currentPlayer}の番です`;
+    }
+
+    // 勝利チェック
+    function checkWin(x, y, player) {
+      const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+      for (const [dx, dy] of directions) {
+        let count = 1;
+        let nx = x - dx, ny = y - dy;
+        // 負の方向にチェック
+        while (nx >= 0 && ny >= 0 && board[nx][ny] === player) {
+          count++;
+          nx -= dx;
+          ny -= dy;
+        }
+        // 正の方向にチェック
+        nx = x + dx;
+        ny = y + dy;
+        while (nx < BOARD_SIZE && ny < BOARD_SIZE && board[nx][ny] === player) {
+          count++;
+          nx += dx;
+          ny += dy;
+        }
+        if (count >= 5) return true;
+      }
+      return false;
+    }
+
+    // リセットボタンの処理
+    resetButton.addEventListener('click', initBoard);
+
+    // 初期化
+    initBoard();
+  </script>
+</body>
+</html>
