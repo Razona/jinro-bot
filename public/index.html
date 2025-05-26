@@ -192,7 +192,6 @@
     }
 
     .feature-list-item {
-      /* Added from previous correct version */
       background-color: white;
       border: 1px solid #e2e8f0;
       /* slate-200 */
@@ -207,7 +206,6 @@
     }
 
     .feature-list-item strong {
-      /* Added from previous correct version */
       color: #1e293b;
       /* slate-800 */
       font-weight: 600;
@@ -260,7 +258,7 @@
         <div><strong>パス:</strong> <code class="path">/game/setup</code></div>
       </div>
       <p class="mb-2"><strong>説明:</strong> ゲームのタイトルを設定し、そのタイトルをカテゴリ名としてDiscord上にゲーム用のカテゴリと基本的なチャンネル（GM用、投票用など、役職チャンネルを除く）を作成します。通常、ゲーム開始前に最初に呼び出されるAPIです。</p>
-      <p>discordにてサーバーidの取得が必要。(開発者モードをONにする必要あり)   コマンド打つのとどっちが簡素かちょっと要審議かも。</p>
+      <p class="text-sm text-slate-500">discordにてサーバーidの取得が必要。(開発者モードをONにする必要あり)   コマンド打つのとどっちが簡素かちょっと要審議かも。</p>
       <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [ゲーム準備開始] ボタン。</p>
       <p class="mb-2"><strong>スプレッドシート処理:</strong> GMが入力したゲームタイトルをJSON化して送信します。</p>
       <div class="mb-2">
@@ -269,7 +267,7 @@
           <li>受け取ったゲームタイトルを現在のゲームセッション情報として保存します。</li>
           <li>指定されたタイトルでDiscord上に新しいカテゴリを作成します。</li>
           <li>作成したカテゴリ内に、基本的なチャンネル（例: <code class="path">GMチャンネル</code>, <code class="path">投票チャンネル</code>）を作成します。役職チャンネルは <code class="path">/role/list/add</code> 受信時に作成されます。</li>
-          <li>プレイヤーリスト作成用の投稿。参加するプレイヤーはここにスタンプをつける</li>
+          <li>プレイヤーリスト作成用の投稿。参加するプレイヤーはここにスタンプをつける。</li>
         </ol>
       </div>
       <h4>リクエストbody (JSON):</h4>
@@ -282,14 +280,79 @@
     </div>
 
     <div class="api-endpoint">
-      <h3>2.2. プレイヤーリスト取得</h3>
+      <h3>2.2. プレイヤーリスト手動登録</h3>
+      <div class="mb-4 space-y-2">
+        <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
+        <div><strong>パス:</strong> <code class="path">/player/list/manual</code></div>
+      </div>
+      <p class="mb-2"><strong>説明:</strong> JSON形式でプレイヤーリストを直接botサーバーに送信し、現在のゲームセッションのプレイヤーリストとして設定します。Discordのリアクション機能を使用せずにプレイヤーを登録したい場合や、テスト時に使用します。このAPIでリストが登録された場合、<code class="path">/player/list</code> (リアクション経由) APIはこの手動登録リストを優先して返却します。<code class="path">/game/setup</code> の後に呼び出します。</p>
+      <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [プレイヤーリスト手動登録] ボタン (新設)。</p>
+      <p class="mb-2"><strong>スプレッドシート処理:</strong> GMが入力またはシート上で管理しているプレイヤー情報（Discord ID, 表示名, プレイヤー番号）をJSON化して送信します。</p>
+      <div class="mb-2">
+        <strong>botサーバー処理:</strong>
+        <ol class="list-decimal list-inside ml-4 mt-1 space-y-1">
+          <li>受け取ったプレイヤーリストを現在のゲームセッションのプレイヤー情報として保存します（既存のプレイヤー情報がある場合は上書きされます）。</li>
+          <li>以降、<code class="path">/player/list</code> APIはこの手動登録された情報を返すようになります。</li>
+          <li><code class="path">gameSession.roles</code> の基本的なプレイヤー情報（Discord ID, 表示名, プレイヤー番号）もこのリストに基づいて更新されます。</li>
+        </ol>
+      </div>
+      <h4>リクエストbody (JSON):</h4>
+      <pre><code class="language-json">
+[
+  {
+    "discordId": "123456789012345678",
+    "screenName": "手動登録ユーザーA",
+    "playerNumber": 1
+  },
+  {
+    "discordId": "987654321098765432",
+    "screenName": "手動登録ユーザーB",
+    "playerNumber": 2
+  }
+  // ... 他のプレイヤー
+]
+            </code></pre>
+      <h4>レスポンスbody (JSON) (成功時例):</h4>
+      <pre><code class="language-json">
+{
+  "message": "Player list manually registered successfully. X players.",
+  "registeredPlayerCount": 2,
+  "players": [
+    { "discordId": "123456789012345678", "screenName": "手動登録ユーザーA", "playerNumber": 1 },
+    { "discordId": "987654321098765432", "screenName": "手動登録ユーザーB", "playerNumber": 2 }
+  ]
+}
+            </code></pre>
+      <h4>レスポンスbody (JSON) (エラー時例):</h4>
+      <pre><code class="language-json">
+{
+  "message": "Validation failed for player list.",
+  "errors": [
+    "Player at index 0: discordId is missing or not a string."
+  ]
+}
+            </code></pre>
+    </div>
+
+    <div class="api-endpoint">
+      <h3>2.3. プレイヤーリスト取得 (リアクション経由)</h3>
       <div class="mb-4 space-y-2">
         <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-get">GET</span></div>
         <div><strong>パス:</strong> <code class="path">/player/list</code></div>
       </div>
       <p class="mb-2"><strong>説明:</strong> Discordの特定メッセージへのリアクション等に基づき、ゲーム参加者のDiscord ID、表示名、およびbotサーバー側で割り振られたプレイヤー番号のリストを取得します。<code class="path">/game/setup</code> の後に呼び出します。</p>
-      <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [プレイヤーリスト取得] ボタン。</p>
-      <p class="mb-2"><strong>botサーバー処理:</strong> Discordから参加者情報を収集し、各プレイヤーに一意のplayerNumberを割り当て、JSON配列で返却します。</p>
+      <div class="note">
+        <p><strong>注記:</strong> <code class="path">/player/list/manual</code> APIによってプレイヤーリストが手動登録されている場合、このAPIはDiscordのリアクション情報を参照せず、手動登録されたリストを返却します。</p>
+      </div>
+      <p class="mt-2 mb-2"><strong>トリガー:</strong> スプレッドシートの [プレイヤーリスト取得] ボタン。</p>
+      <div class="mb-2">
+        <strong>botサーバー処理:</strong>
+        <ol class="list-decimal list-inside ml-4 mt-1 space-y-1">
+          <li>手動登録されたプレイヤーリストが存在する場合はそれを返却します。</li>
+          <li>手動登録リストがない場合、Discordから参加者情報を収集し、各プレイヤーに一意のplayerNumberを割り当て、JSON配列で返却します。</li>
+          <li>取得したプレイヤー情報は <code class="path">gameSession.roles</code> の基本情報としても保存されます（手動リストがない場合）。</li>
+        </ol>
+      </div>
       <p class="mb-2"><strong>スプレッドシート処理:</strong> 取得したリストを `メンバー` シートに反映させます。</p>
       <h4>レスポンスbody (JSON):</h4>
       <pre><code class="language-json">
@@ -302,12 +365,12 @@
     </div>
 
     <div class="api-endpoint">
-      <h3>2.3. 配役リスト送信</h3>
+      <h3>2.4. 配役リスト送信</h3>
       <div class="mb-4 space-y-2">
         <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
         <div><strong>パス:</strong> <code class="path">/role/list/add</code></div>
       </div>
-      <p class="mb-2"><strong>説明:</strong> スプレッドシートで決定された配役情報をbotサーバーに送信し、Discord上での役職配布（役職チャンネル作成、招待、メンション）を依頼します。<code class="path">/user-list/pull</code> の後に呼び出します。</p>
+      <p class="mb-2"><strong>説明:</strong> スプレッドシートで決定された配役情報をbotサーバーに送信し、Discord上での役職配布（役職チャンネル作成、招待、メンション）を依頼します。<code class="path">/player/list</code> または <code class="path">/player/list/manual</code> の後に呼び出します。botサーバー側では、このAPIから送られた役職情報を、既存のプレイヤーリスト（手動登録またはリアクション経由で<code class="path">gameSession.roles</code>に基本情報が格納されている）にマージします。</p>
       <p class="mb-2"><strong>トリガー:</strong> スプレッドシートの [配役結果を送信] ボタン。</p>
       <p class="mb-2"><strong>スプレッドシート処理:</strong> 配役情報をJSON化して送信します。</p>
       <p class="mb-2"><strong>botサーバー処理:</strong> 受け取った情報に基づき、<code class="path">/game/setup</code> で作成したカテゴリ内に役職チャンネル（村人を除く）を作成し、プレイヤーを招待、メンションで通知します。</p>
@@ -316,17 +379,17 @@
 [
   {
     "discordId": "123456789012345678",
-    "screenName": "プレイヤー1", // ゲーム内表示名
+    "screenName": "プレイヤー1",
     "playerNumber": 1,
     "role": "人狼",
-    "initialFortuneTargetPlayerNumber": null // 占い師でない場合はnull
+    "initialFortuneTargetPlayerNumber": null
   },
   {
     "discordId": "987654321098765432",
     "screenName": "プレイヤー2",
     "playerNumber": 2,
     "role": "占い師",
-    "initialFortuneTargetPlayerNumber": 3 // 占い師の場合、初日占い先のプレイヤー番号
+    "initialFortuneTargetPlayerNumber": 3
   },
   // ... 他のプレイヤー
   {
@@ -338,10 +401,13 @@
   }
 ]
             </code></pre>
+      <div class="note">
+        <p><strong>注記:</strong> リクエストJSON内の <code class="path">discordId</code> と <code class="path">screenName</code> は、botサーバーに既に登録されているプレイヤー情報（<code class="path">/player/list</code> または <code class="path">/player/list/manual</code> で取得・設定されたもの）と <code class="path">playerNumber</code> をキーに照合されます。役職 (<code class="path">role</code>) と初日占い対象 (<code class="path">initialFortuneTargetPlayerNumber</code>) が主にこのAPIで設定・更新される情報となります。</p>
+      </div>
     </div>
 
     <div class="api-endpoint">
-      <h3>2.4. 投票結果送信</h3>
+      <h3>2.5. 投票結果送信</h3>
       <div class="mb-4 space-y-2">
         <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
         <div><strong>パス:</strong> <code class="path">/vote/result</code></div>
@@ -367,7 +433,7 @@
     </div>
 
     <div class="api-endpoint">
-      <h3>2.5. 占い結果送信</h3>
+      <h3>2.6. 占い結果送信</h3>
       <div class="mb-4 space-y-2">
         <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
         <div><strong>パス:</strong> <code class="path">/night/fortuner</code></div>
@@ -387,7 +453,7 @@
     </div>
 
     <div class="api-endpoint">
-      <h3>2.6. 霊媒結果送信</h3>
+      <h3>2.7. 霊媒結果送信</h3>
       <div class="mb-4 space-y-2">
         <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
         <div><strong>パス:</strong> <code class="path">/night/medium</code></div>
@@ -406,7 +472,7 @@
             </code></pre>
     </div>
     <div class="api-endpoint">
-      <h3>2.7. ゲーム終了通知</h3>
+      <h3>2.8. ゲーム終了通知</h3>
       <div class="mb-4 space-y-2">
         <div><strong>HTTPメソッド:</strong> <span class="http-method http-method-post">POST</span></div>
         <div><strong>パス:</strong> <code class="path">/game/end</code></div>
@@ -415,7 +481,7 @@
       <h4>リクエストbody (JSON):</h4>
       <pre><code class="language-json">
 {
-  "winningFaction": "人狼陣営"
+  "winningFaction": "人狼陣営" // 例: "人狼陣営", "村人陣営" など
 }
             </code></pre>
     </div>
@@ -430,8 +496,15 @@
         <p class="text-sm text-slate-500 mt-1">関連API: <code class="path">POST /game/setup</code></p>
       </li>
       <li class="feature-list-item">
-        <strong>プレイヤーリスト取得ボタン</strong>
+        <strong>プレイヤーリスト手動登録ボタン (新設)</strong>
+        <p class="text-sm text-slate-600 mt-1">スプレッドシート上のプレイヤー情報（Discord ID, 表示名, プレイヤー番号）をJSON形式で送信し、プレイヤーリストを確定させる。</p>
+        <p class="text-sm text-slate-600 mt-1">リアクションでの参加が難しい場合やテスト用。</p>
+        <p class="text-sm text-slate-500 mt-1">関連API: <code class="path">POST /player/list/manual</code></p>
+      </li>
+      <li class="feature-list-item">
+        <strong>プレイヤーリスト取得ボタン (リアクション経由)</strong>
         <p class="text-sm text-slate-600 mt-1">このボタンを押して取得した結果をメンバーリストに反映させて欲しい。</p>
+        <p class="text-sm text-slate-600 mt-1"><code class="path">/player/list/manual</code> で手動登録されていない場合にDiscordのリアクションを参照する。</p>
         <p class="text-sm text-slate-500 mt-1">関連API: <code class="path">GET /player/list</code></p>
       </li>
       <li class="feature-list-item">
