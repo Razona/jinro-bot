@@ -34,7 +34,7 @@ let attackTarget = null;
 let uranaiTarget = null;
 let foxKilled = false;
 
-const categoryName = '3月13日-3陣営'; // 取得したいカテゴリ名
+const categoryName = '5月20日-2戦目'; // 取得したいカテゴリ名
 const targetChannelName = 'gm'; // 取得したいチャンネル名
 const targetRoleName = 'GM'; // 取得したいロール名
 
