@@ -39,24 +39,31 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-let gameSession = {
-  serverId: null,
-  gameTitle: null,
-  categoryId: null,
-  channels: { // ここにはGM、投票、お知らせなど基本的なチャンネルIDのみを保持する想定
-    gm: null,
-    vote: null,
-    announce: null,
-  },
-  playerListMessageId: null,
-  playerListMessageChannelId: null,
-  roles: [], // プレイヤーの基本情報と配役情報を含むリスト
-  manualPlayerList: null, // 手動登録されたプレイヤーリストの元データ
-  voteResult: null,
-  fortuneResults: [],
-  mediumResults: [],
-  winningFaction: null,
-};
+
+// gameSessionの初期状態を定義する関数
+function getInitialGameSession() {
+  return {
+    serverId: null,
+    gameTitle: null,
+    categoryId: null,
+    channels: { // ここにはGM、投票、お知らせなど基本的なチャンネルIDのみを保持する想定
+      gm: null,
+      vote: null,
+      announce: null,
+    },
+    playerListMessageId: null,
+    playerListMessageChannelId: null,
+    roles: [], // プレイヤーの基本情報と配役情報を含むリスト
+    manualPlayerList: null, // 手動登録されたプレイヤーリストの元データ
+    voteResult: null,
+    fortuneResults: [],
+    mediumResults: [],
+    winningFaction: null,
+  };
+}
+
+let gameSession = getInitialGameSession(); // サーバー起動時に初期状態を設定
+
 
 // 初期サンプルプレイヤーリスト (デバッグ用、実際はAPI経由で設定)
 let playerList_sample_debug = [
@@ -628,4 +635,17 @@ app.post('/game/end', async (req, res) => {
 app.use((req, res) => {
   console.warn(`404 Not Found: ${req.method} ${req.originalUrl}`);
   res.status(404).send('Sorry, cant find that!');
+});
+
+
+// ★★★ 新規APIエンドポイント: /reset ★★★
+app.post('/reset', (req, res) => {
+  console.log('Received /reset request. Resetting game session to initial state.');
+  const oldGameTitle = gameSession.gameTitle; // リセット前の情報をログ用に保持
+  const oldServerId = gameSession.serverId;
+
+  gameSession = getInitialGameSession(); // gameSessionを初期状態に戻す
+
+  console.log(`Game session has been reset. (Old serverId: ${oldServerId}, Old gameTitle: ${oldGameTitle})`);
+  res.status(200).json({ message: 'Game session has been reset successfully.' });
 });
